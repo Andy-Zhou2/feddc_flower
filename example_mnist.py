@@ -3,6 +3,8 @@ from utils_models import client_model
 
 import torch
 import numpy as np
+import flwr as fl
+from client import FeddcClient
 
 
 data_path = 'Folder/' # The folder to save Data & Model
@@ -48,3 +50,11 @@ n_minibatch = (epoch*n_iter_per_epoch).astype(np.int64)
 #                                     model_func=model_func, init_model=init_model, alpha_coef=alpha_coef,
 #                                     sch_step=1, sch_gamma=1,save_period=save_period, suffix=suffix, trial=False,
 #                                     data_path=data_path, lr_decay_per_round=lr_decay_per_round)
+
+fl.simulation.start_simulation(
+    client_fn=client_fn,
+    num_clients=2,
+    config=fl.server.ServerConfig(num_rounds=3),
+    strategy=FedCustom(),  # <-- pass the new strategy here
+    client_resources=client_resources,
+)

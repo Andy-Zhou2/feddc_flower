@@ -130,4 +130,17 @@ class client_model(nn.Module):
             x = self.fc(last_hidden)
 
         return x
-    
+
+if __name__ == '__main__':
+    # setting and getting model param
+    m = client_model('mnist_2NN')
+    # print(dict(m.named_parameters()))
+    from utils_general import get_mdl_params, set_client_from_params
+    p = get_mdl_params([m])
+    print(p)
+    print(p.shape)
+    p += 1
+
+    m2 = client_model('mnist_2NN')
+    set_client_from_params(m2, p.squeeze(0))
+    print(get_mdl_params([m2]))
