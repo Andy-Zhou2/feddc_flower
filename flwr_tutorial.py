@@ -181,6 +181,7 @@ class FlowerClient(fl.client.NumPyClient):
 def client_fn(cid: str) -> FlowerClient:
     """Create a Flower client representing a single organization."""
 
+    print('creating client', cid)
     # Load model
     net = Net().to(DEVICE)
 

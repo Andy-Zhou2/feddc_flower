@@ -1,13 +1,14 @@
 from utils_dataset import DatasetObject
 from utils_models import client_model
+from utils_general import get_mdl_params, set_client_from_params, train_model_FedDC
 
 import torch
 import numpy as np
 import flwr as fl
 from client import FeddcClient
+import os, shutil
 
-
-data_path = 'Folder/' # The folder to save Data & Model
+data_path = 'Folder/'  # The folder to save Data & Model
 
 # Generate IID or Dirichlet distribution
 # IID
@@ -17,7 +18,7 @@ data_obj = DatasetObject(dataset='mnist', n_client=n_client, seed=23, rule='iid'
 # Dirichlet (0.6)
 # data_obj = DatasetObject(dataset='CIFAR10', n_client=n_client, seed=20, unbalanced_sgm=0, rule='Drichlet', rule_arg=0.6, data_path=data_path)
 
-model_name = 'mnist_2NN' # Model type
+model_name = 'mnist_2NN'  # Model type
 
 # Common hyperparameters
 com_amount = 300
@@ -29,20 +30,32 @@ suffix = model_name
 lr_decay_per_round = 0.998
 
 # Model function
-model_func = lambda : client_model(model_name)
+def model_func():
+    return client_model(model_name)
 init_model = model_func()
+n_par = get_mdl_params([init_model])[0].size
 
 torch.manual_seed(37)
 
-
 epoch = 5
-alpha_coef =0.1
+alpha_coef = 0.1
 learning_rate = 0.1
-print_per = 5#epoch // 2
+print_per = 5  # epoch // 2
 
 n_data_per_client = np.concatenate(data_obj.clnt_x, axis=0).shape[0] / n_client
-n_iter_per_epoch  = np.ceil(n_data_per_client/batch_size)
-n_minibatch = (epoch*n_iter_per_epoch).astype(np.int64)
+n_iter_per_epoch = np.ceil(n_data_per_client / batch_size)
+n_minibatch = (epoch * n_iter_per_epoch).astype(np.int64)
+
+
+
+client_sim_path = './client_sim/'
+if os.path.exists(client_sim_path):
+    shutil.rmtree(client_sim_path)
+os.mkdir(client_sim_path)
+
+for c in range(n_client):
+    np.save(client_sim_path + 'client_' + str(c) + '_local_update_last.npy', np.zeros(n_par))
+    np.save(client_sim_path + 'client_' + str(c) + '_params_drift.npy', np.zeros(n_par))
 
 # [avg_ins_mdls, avg_cld_mdls, avg_all_mdls, trn_sel_clt_perf, tst_sel_clt_perf, trn_cur_cld_perf, tst_cur_cld_perf, trn_all_clt_perf, tst_all_clt_perf] = train_FedDC(data_obj=data_obj, act_prob=act_prob, n_minibatch=n_minibatch,
 #                                     learning_rate=learning_rate, batch_size=batch_size, epoch=epoch,
