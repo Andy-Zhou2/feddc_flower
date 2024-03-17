@@ -1,6 +1,8 @@
 from utils_dataset import DatasetObject
 from utils_models import client_model
 from utils_general import get_mdl_params, set_client_from_params, train_model_FedDC
+from client import client_fn, evaluate_fn
+from functools import partial
 
 import torch
 import numpy as np
@@ -42,9 +44,9 @@ alpha_coef = 0.1
 learning_rate = 0.1
 print_per = 5  # epoch // 2
 
-n_data_per_client = np.concatenate(data_obj.clnt_x, axis=0).shape[0] / n_client
-n_iter_per_epoch = np.ceil(n_data_per_client / batch_size)
-n_minibatch = (epoch * n_iter_per_epoch).astype(np.int64)
+# n_data_per_client = np.concatenate(data_obj.clnt_x, axis=0).shape[0] / n_client
+# n_iter_per_epoch = np.ceil(n_data_per_client / batch_size)
+# n_minibatch = (epoch * n_iter_per_epoch).astype(np.int64)
 
 
 
@@ -64,10 +66,20 @@ for c in range(n_client):
 #                                     sch_step=1, sch_gamma=1,save_period=save_period, suffix=suffix, trial=False,
 #                                     data_path=data_path, lr_decay_per_round=lr_decay_per_round)
 
+
+strategy = fl.server.strategy.FedAvg(
+    fraction_fit=0.15,
+    fraction_evaluate=0,
+    # min_fit_clients=10,
+    # min_evaluate_clients=5,
+    # min_available_clients=10,
+    evaluate_metrics_aggregation_fn=partial(evaluate_fn, data_obj=data_obj, model_name=model_name),  # <-- pass the metric aggregation function
+)
+
 fl.simulation.start_simulation(
-    client_fn=client_fn,
-    num_clients=2,
+    client_fn=lambda x: client_fn(data_obj=data_obj, model_name=model_name, n_par=n_par, cid=x),
+    num_clients=n_client,
     config=fl.server.ServerConfig(num_rounds=3),
-    strategy=FedCustom(),  # <-- pass the new strategy here
-    client_resources=client_resources,
+    strategy=strategy,
+    client_resources={"num_cpus": 1, "num_gpus": 0.0},
 )

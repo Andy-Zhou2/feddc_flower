@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from typing import List, Tuple
+from typing import List, Tuple, Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,6 +13,9 @@ from torch.utils.data import DataLoader
 import flwr as fl
 from flwr.common import Metrics
 from flwr_datasets import FederatedDataset
+from flwr.common.typing import NDArrays, Scalar
+
+
 
 DEVICE = torch.device("cpu")  # Try "cuda" to train on GPU
 print(
@@ -229,6 +232,10 @@ def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
     # Aggregate and return custom metric (weighted average)
     return {"accuracy": sum(accuracies) / sum(examples)}
 
+
+
+
+
 # Create FedAvg strategy
 strategy = fl.server.strategy.FedAvg(
     # fraction_fit=1.0,
@@ -236,7 +243,7 @@ strategy = fl.server.strategy.FedAvg(
     # min_fit_clients=10,
     # min_evaluate_clients=5,
     # min_available_clients=10,
-    evaluate_metrics_aggregation_fn=weighted_average,  # <-- pass the metric aggregation function
+    evaluate_fn=evaluate_fn
 )
 
 # Start simulation
