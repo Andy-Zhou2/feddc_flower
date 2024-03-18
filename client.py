@@ -25,6 +25,7 @@ class FeddcClient(fl.client.NumPyClient):
             self.params_drift: np.ndarray = np.load(f)
 
     def fit(self, parameters: NDArrays, config: dict[str, Any]) -> tuple[NDArrays, int, dict[str, Any]]:
+        print(f'--------training client {self.cid}-------------')
         parameters = parameters[0]
         set_client_from_params(self.net, parameters)
         for params in self.net.parameters():
@@ -75,13 +76,17 @@ class FeddcClient(fl.client.NumPyClient):
         # print(f'parameter_drifts[{self.cid}] sum: {np.sum(self.params_drift[0])}')
         #
 
-        # state_gadient_diffs[clnt] = state_g
+        # update state_gadient_diffs[clnt] = state_g
         with open(os.path.join(self.data_path, 'client_' + str(self.cid) + '_local_update_last.npy'), 'wb') as f:
             np.save(f, state_g)
+
+        # update param_drifts
         with open(os.path.join(self.data_path, 'client_' + str(self.cid) + '_params_drift.npy'), 'wb') as f:
             np.save(f, self.params_drift)
-        #
-        # return_param = [get_mdl_params([new_model])[0] + self.params_drift[0]]
+        # update model weights
+        with open(os.path.join(self.data_path, 'client_' + str(self.cid) + '_model_weights.npy'), 'wb') as f:
+            np.save(f, new_model_params)
+
         return [new_model_params], len(self.client_y), {
             'delta_g_cur': delta_g_cur,
             'drift': self.params_drift,

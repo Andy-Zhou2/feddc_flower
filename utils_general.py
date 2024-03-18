@@ -105,6 +105,25 @@ def train_model_FedDC(model, model_func, alpha, local_update_last, global_update
                       trn_x, trn_y,
                       learning_rate, batch_size, epoch, print_per,
                       weight_decay, dataset_name, sch_step, sch_gamma):
+    # print(f'model: {model}')
+    # print(f'model_func: {model_func}')
+    # print(f'alpha: {alpha}')
+    # print(f'local_update_last: {np.sum(local_update_last)}')
+    # print(f'global_update_last: {np.sum(global_update_last)}')
+    # print(f'global_model_param: {np.sum(global_model_param.numpy())}')
+    # print(f'hist_i: {np.sum(hist_i)}')
+    # print(f'trn_x: {np.sum(trn_x)}')
+    # print(f'trn_y: {np.sum(trn_y)}')
+    # print(f'learning_rate: {learning_rate}')
+    # print(f'batch_size: {batch_size}')
+    # print(f'epoch: {epoch}')
+    # print(f'print_per: {print_per}')
+    # print(f'weight_decay: {weight_decay}')
+    # print(f'dataset_name: {dataset_name}')
+    # print(f'sch_step: {sch_step}')
+    # print(f'sch_gamma: {sch_gamma}')
+
+
     n_trn = trn_x.shape[0]
     state_update_diff = torch.tensor(-local_update_last + global_update_last, dtype=torch.float32, device=device)
     trn_gen = data.DataLoader(Dataset(trn_x, trn_y, train=True, dataset_name=dataset_name), batch_size=batch_size,
@@ -166,6 +185,9 @@ def train_model_FedDC(model, model_func, alpha, local_update_last, global_update
             print("loss_f_i: %.4f, loss_cp: %.4f, loss_cg: %.4f" % (loss_f_i, loss_cp, loss_cg.item()))
             print("Epoch %3d, Training Loss: %.4f, LR: %.5f"
                   % (e + 1, epoch_loss, scheduler.get_last_lr()[0]))
+            # print(
+            #     f'local_update_last: {np.sum(local_update_last):.4f}, global_update_last: {np.sum(global_update_last):.4f}, '
+            #     f'state_update_diff: {np.sum(state_update_diff.detach().numpy()):.4f}, local param: {np.sum(local_parameter.detach().numpy()):.4f}')
 
             model.train()
         scheduler.step()

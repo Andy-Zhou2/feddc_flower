@@ -26,11 +26,12 @@ data_obj = DatasetObject(dataset='mnist', n_client=n_client, seed=23, rule='iid'
 model_name = 'mnist_2NN'  # Model type
 
 # Common hyperparameters
-com_amount = 300
+com_amount = 10
 save_period = 100
 weight_decay = 1e-3
 batch_size = 50
-act_prob = 0.15
+# act_prob = 0.15
+act_prob = 1
 suffix = model_name
 lr_decay_per_round = 0.998
 
@@ -41,7 +42,8 @@ def model_func():
 
 
 init_model = model_func()
-n_par = get_mdl_params(init_model).size
+init_weights = get_mdl_params(init_model)
+n_par = init_weights.size
 
 torch.manual_seed(37)
 
@@ -62,6 +64,7 @@ os.mkdir(client_sim_path)
 for c in range(n_client):
     np.save(os.path.join(client_sim_path, 'client_' + str(c) + '_local_update_last.npy'), np.zeros(n_par))
     np.save(os.path.join(client_sim_path, 'client_' + str(c) + '_params_drift.npy'), np.zeros(n_par))
+    np.save(os.path.join(client_sim_path, 'client_' + str(c) + '_model_weights.npy'), init_weights)
 
 feddc_config = {
     'alpha': alpha_coef,
@@ -81,7 +84,8 @@ strategy = FedDC(
     fraction_fit=act_prob,
     fraction_evaluate=0,
     initial_parameters=weights_to_parameters(get_mdl_params(init_model, n_par)),
-    n_par=n_par
+    n_par=n_par,
+    client_sim_path=client_sim_path,
 )
 
 fl.simulation.start_simulation(

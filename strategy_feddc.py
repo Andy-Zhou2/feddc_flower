@@ -9,6 +9,7 @@ from utils_general import (set_client_from_params, get_acc_loss,
                            weights_to_parameters, parameters_to_weights)
 from utils_dataset import DatasetObject
 import torch
+import os
 
 from flwr.common import (
     EvaluateIns,
@@ -63,6 +64,7 @@ class FedDC(fl.server.strategy.Strategy):
             data_obj: DatasetObject,
             config: Dict[str, Scalar],
             n_par: int,
+            client_sim_path: str,
             fraction_fit: float = 1.0,
             fraction_evaluate: float = 1.0,
             min_fit_clients: int = 2,
@@ -82,15 +84,19 @@ class FedDC(fl.server.strategy.Strategy):
         self.state_gradient_diff = np.zeros(n_par)
         self.n_par = n_par
         self.config = dict() if config is None else config
+        self.client_sim_path = client_sim_path
 
         # prepare weight_list
         # weight_list[i] is the #samples of client i / mean sample numbers per client
         weight_list = np.asarray([len(data_obj.clnt_y[i]) for i in range(data_obj.n_client)])
-        # self.weight_list = weight_list / np.sum(weight_list) * data_obj.n_client
-
-        # mean_sample_num is used to calculate weight of each client
         self.mean_sample_num = np.mean(weight_list)
         print('mean_sample_num:', self.mean_sample_num)
+
+        self.cent_x = np.concatenate(data_obj.clnt_x, axis=0)
+        self.cent_y = np.concatenate(data_obj.clnt_y, axis=0)
+
+        self.selected_clients_average_weight = None
+        self.all_client_average_weight = None
 
     def __repr__(self) -> str:
         return "FedDC"
@@ -170,11 +176,28 @@ class FedDC(fl.server.strategy.Strategy):
         delta_g_cur = 1 / self.data_obj.n_client * delta_g_sum
         self.state_gradient_diff += delta_g_cur
 
-        parameters_aggregated = weights_to_parameters(parameters_aggregated)
+        selected_clients_average_weight = np.mean(weights_results, axis=0)
 
-        fit_metrics = [(res.num_examples, res.metrics) for _, res in results]
-        metrics_aggregated = aggregate_weighted_average(fit_metrics)
-        return parameters_aggregated, metrics_aggregated
+        all_client_weights = np.zeros(self.n_par)
+        all_client_drifts = np.zeros(self.n_par)
+        for c in range(self.data_obj.n_client):
+            all_client_weights += np.load(os.path.join(self.client_sim_path, 'client_' + str(c) + '_model_weights.npy'))
+            all_client_drifts += np.load(os.path.join(self.client_sim_path, 'client_' + str(c) + '_params_drift.npy'))
+        all_client_weights /= self.data_obj.n_client
+        all_client_drifts /= self.data_obj.n_client
+
+        cloud_model_weight = selected_clients_average_weight + all_client_drifts
+        all_client_average_weight = all_client_weights
+
+        parameters_aggregated = weights_to_parameters(cloud_model_weight)
+
+        # save for evaluation
+        self.selected_clients_average_weight = selected_clients_average_weight
+        self.all_client_average_weight = all_client_average_weight
+
+        # fit_metrics = [(res.num_examples, res.metrics) for _, res in results]
+        # metrics_aggregated = aggregate_weighted_average(fit_metrics)
+        return parameters_aggregated, {}
 
     def configure_evaluate(
             self, server_round: int, parameters: Parameters, client_manager: ClientManager
@@ -207,10 +230,35 @@ class FedDC(fl.server.strategy.Strategy):
             self, server_round: int, parameters: Parameters
     ) -> Optional[Tuple[float, Dict[str, Scalar]]]:
         """Evaluate global model parameters using an evaluation function."""
+        results = dict()
         cur_cld_model = set_client_from_params(self.model_func(), parameters_to_weights(parameters))
         loss_tst, acc_tst = get_acc_loss(self.data_obj.tst_x, self.data_obj.tst_y,
                                          cur_cld_model, self.data_obj.dataset, 0)
-        return loss_tst, {'accuracy': acc_tst}
+        results['test_cld'] = {'loss': loss_tst, 'accuracy': acc_tst}
+        loss_tst, acc_tst = get_acc_loss(self.cent_x, self.cent_y,
+                                         cur_cld_model, self.data_obj.dataset, 0)
+        results['cent_cld'] = {'loss': loss_tst, 'accuracy': acc_tst}
+
+        if self.selected_clients_average_weight is not None:
+            selected_client_model = set_client_from_params(self.model_func(), self.selected_clients_average_weight)
+            loss_tst, acc_tst = get_acc_loss(self.data_obj.tst_x, self.data_obj.tst_y,
+                                             selected_client_model, self.data_obj.dataset, 0)
+            results['test_selected'] = {'loss': loss_tst, 'accuracy': acc_tst}
+            loss_tst, acc_tst = get_acc_loss(self.cent_x, self.cent_y,
+                                                selected_client_model, self.data_obj.dataset, 0)
+            results['cent_selected'] = {'loss': loss_tst, 'accuracy': acc_tst}
+
+        if self.all_client_average_weight is not None:
+            all_client_model = set_client_from_params(self.model_func(), self.all_client_average_weight)
+            loss_tst, acc_tst = get_acc_loss(self.data_obj.tst_x, self.data_obj.tst_y,
+                                             all_client_model, self.data_obj.dataset, 0)
+            results['test_all'] = {'loss': loss_tst, 'accuracy': acc_tst}
+            loss_tst, acc_tst = get_acc_loss(self.cent_x, self.cent_y,
+                                             all_client_model, self.data_obj.dataset, 0)
+            results['cent_all'] = {'loss': loss_tst, 'accuracy': acc_tst}
+
+
+        return results['test_cld']['loss'], results
 
     def num_fit_clients(self, num_available_clients: int) -> Tuple[int, int]:
         """Return sample size and required number of clients."""
