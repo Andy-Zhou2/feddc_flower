@@ -26,12 +26,12 @@ data_obj = DatasetObject(dataset='mnist', n_client=n_client, seed=23, rule='iid'
 model_name = 'mnist_2NN'  # Model type
 
 # Common hyperparameters
-com_amount = 10
+com_amount = 3
 save_period = 100
 weight_decay = 1e-3
 batch_size = 50
 # act_prob = 0.15
-act_prob = 1
+act_prob = 0.15
 suffix = model_name
 lr_decay_per_round = 0.998
 
@@ -93,5 +93,5 @@ fl.simulation.start_simulation(
     num_clients=n_client,
     config=fl.server.ServerConfig(num_rounds=com_amount),
     strategy=strategy,
-    client_resources={"num_cpus": 1, "num_gpus": 0.0},
+    client_resources={"num_cpus": 16, "num_gpus": 0.0},
 )

@@ -173,7 +173,9 @@ class FedDC(fl.server.strategy.Strategy):
             fit_res.metrics['delta_g_cur'] for _, fit_res in results
         ]
         delta_g_sum = np.sum(delta_g_results, axis=0)
+        print(f'delta_g_sum sum: {np.sum(delta_g_sum)}')
         delta_g_cur = 1 / self.data_obj.n_client * delta_g_sum
+        print(f'delta_g_cur sum: {np.sum(delta_g_cur)}')
         self.state_gradient_diff += delta_g_cur
 
         selected_clients_average_weight = np.mean(weights_results, axis=0)

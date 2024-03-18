@@ -185,9 +185,9 @@ def train_model_FedDC(model, model_func, alpha, local_update_last, global_update
             print("loss_f_i: %.4f, loss_cp: %.4f, loss_cg: %.4f" % (loss_f_i, loss_cp, loss_cg.item()))
             print("Epoch %3d, Training Loss: %.4f, LR: %.5f"
                   % (e + 1, epoch_loss, scheduler.get_last_lr()[0]))
-            # print(
-            #     f'local_update_last: {np.sum(local_update_last):.4f}, global_update_last: {np.sum(global_update_last):.4f}, '
-            #     f'state_update_diff: {np.sum(state_update_diff.detach().numpy()):.4f}, local param: {np.sum(local_parameter.detach().numpy()):.4f}')
+            print(
+                f'local_update_last: {np.sum(local_update_last):.4f}, global_update_last: {np.sum(global_update_last):.4f}, '
+                f'state_update_diff: {np.sum(state_update_diff.detach().numpy()):.4f}, local param: {np.sum(local_parameter.detach().numpy()):.4f}')
 
             model.train()
         scheduler.step()
