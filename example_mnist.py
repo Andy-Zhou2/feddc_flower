@@ -26,7 +26,7 @@ data_obj = DatasetObject(dataset='mnist', n_client=n_client, seed=23, rule='iid'
 model_name = 'mnist_2NN'  # Model type
 
 # Common hyperparameters
-com_amount = 3
+com_amount = 300
 save_period = 100
 weight_decay = 1e-3
 batch_size = 50
@@ -50,7 +50,7 @@ torch.manual_seed(37)
 epoch = 5
 alpha_coef = 0.1
 learning_rate = 0.1
-print_per = 5  # epoch // 2
+print_per = epoch // 2
 
 n_data_per_client = np.concatenate(data_obj.clnt_x, axis=0).shape[0] / n_client
 n_iter_per_epoch = np.ceil(n_data_per_client / batch_size)
@@ -93,5 +93,5 @@ fl.simulation.start_simulation(
     num_clients=n_client,
     config=fl.server.ServerConfig(num_rounds=com_amount),
     strategy=strategy,
-    client_resources={"num_cpus": 16, "num_gpus": 0.0},
+    client_resources={"num_cpus": 1, "num_gpus": 0.0},
 )

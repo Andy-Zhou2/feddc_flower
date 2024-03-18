@@ -59,14 +59,14 @@ class FeddcClient(fl.client.NumPyClient):
         new_model_params = get_mdl_params(new_model)
         delta_param_curr = new_model_params - parameters
         self.params_drift += delta_param_curr
-        print(f'parameter_drifts sum: {np.sum(self.params_drift)}, delta_param_curr sum: {np.sum(delta_param_curr)}')
+        # print(f'parameter_drifts sum: {np.sum(self.params_drift)}, delta_param_curr sum: {np.sum(delta_param_curr)}')
         n_mini_batch = np.ceil(config['mean_sample_num'] / config['batch_size']) * config['epoch']
         beta = 1 / n_mini_batch / config['learning_rate']
-        print(f'n_mini_batch: {n_mini_batch}, lr: {config["learning_rate"]}, beta: {beta}')
+        # print(f'n_mini_batch: {n_mini_batch}, lr: {config["learning_rate"]}, beta: {beta}')
 
         state_g = self.state_gradient_diff - global_update_last + beta * (-delta_param_curr)
-        print(
-            f'state_g sum: {np.sum(state_g)}, local_update_last sum: {np.sum(self.state_gradient_diff):.4f}, global_update_last sum: {np.sum(global_update_last):.4f}, beta: {beta:.4f}')
+        # print(
+        #     f'state_g sum: {np.sum(state_g)}, local_update_last sum: {np.sum(self.state_gradient_diff):.4f}, global_update_last sum: {np.sum(global_update_last):.4f}, beta: {beta:.4f}')
 
         delta_g_cur = (state_g - self.state_gradient_diff) * weight
 
