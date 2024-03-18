@@ -5,7 +5,8 @@ import flwr as fl
 import numpy as np
 from collections import defaultdict
 import numbers
-from utils_general import set_client_from_params, get_acc_loss
+from utils_general import (set_client_from_params, get_acc_loss,
+                           weights_to_parameters, parameters_to_weights)
 from utils_dataset import DatasetObject
 import torch
 
@@ -24,6 +25,7 @@ from flwr.common import (
 from flwr.server.client_manager import ClientManager
 from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy.aggregate import aggregate, weighted_loss_avg
+
 
 def aggregate_weighted_average(metrics: list[tuple[int, dict]]) -> dict:
     """Combine results from multiple clients.
@@ -53,19 +55,20 @@ def aggregate_weighted_average(metrics: list[tuple[int, dict]]) -> dict:
         for key, val in average_dict.items()
     }
 
+
 class FedDC(fl.server.strategy.Strategy):
     def __init__(
-        self,
-        model_func: Callable[[], torch.nn.Module],
-        data_obj: DatasetObject,
-        config: Dict[str, Scalar],
-        fraction_fit: float = 1.0,
-        fraction_evaluate: float = 1.0,
-        min_fit_clients: int = 2,
-        min_evaluate_clients: int = 2,
-        min_available_clients: int = 2,
-        initial_parameters: Optional[Parameters] = None,
-        n_par: Optional[int] = None,
+            self,
+            model_func: Callable[[], torch.nn.Module],
+            data_obj: DatasetObject,
+            config: Dict[str, Scalar],
+            n_par: int,
+            fraction_fit: float = 1.0,
+            fraction_evaluate: float = 1.0,
+            min_fit_clients: int = 2,
+            min_evaluate_clients: int = 2,
+            min_available_clients: int = 2,
+            initial_parameters: Optional[Parameters] = None
     ) -> None:
         super().__init__()
         self.model_func = model_func
@@ -76,16 +79,24 @@ class FedDC(fl.server.strategy.Strategy):
         self.min_evaluate_clients = min_evaluate_clients
         self.min_available_clients = min_available_clients
         self.initial_parameters = initial_parameters
-        self.state_gradient_diff = None
+        self.state_gradient_diff = np.zeros(n_par)
         self.n_par = n_par
-        self.param_last_round = None
         self.config = dict() if config is None else config
+
+        # prepare weight_list
+        # weight_list[i] is the #samples of client i / mean sample numbers per client
+        weight_list = np.asarray([len(data_obj.clnt_y[i]) for i in range(data_obj.n_client)])
+        # self.weight_list = weight_list / np.sum(weight_list) * data_obj.n_client
+
+        # mean_sample_num is used to calculate weight of each client
+        self.mean_sample_num = np.mean(weight_list)
+        print('mean_sample_num:', self.mean_sample_num)
 
     def __repr__(self) -> str:
         return "FedDC"
 
     def initialize_parameters(
-        self, client_manager: ClientManager
+            self, client_manager: ClientManager
     ) -> Optional[Parameters]:
         """Initialize global model parameters."""
         initial_parameters = self.initial_parameters
@@ -93,7 +104,7 @@ class FedDC(fl.server.strategy.Strategy):
         return initial_parameters
 
     def configure_fit(
-        self, server_round: int, parameters: Parameters, client_manager: ClientManager
+            self, server_round: int, parameters: Parameters, client_manager: ClientManager
     ) -> List[Tuple[ClientProxy, FitIns]]:
         """Configure the next round of training."""
 
@@ -105,14 +116,14 @@ class FedDC(fl.server.strategy.Strategy):
             num_clients=sample_size, min_num_clients=min_num_clients
         )
 
-        param_this_round = parameters_to_ndarrays(parameters)
-        if server_round == 1:
-            if self.n_par is None:
-                self.n_par = param_this_round[0].size
-            self.state_gradient_diff = [np.zeros(self.n_par)]
-        else:
-            self.state_gradient_diff = [param_this_round[0] - self.param_last_round[0]]
-        self.param_last_round = param_this_round
+        # param_this_round = parameters_to_ndarrays(parameters)
+        # if server_round == 1:
+        #     if self.n_par is None:
+        #         self.n_par = param_this_round[0].size
+        #     self.state_gradient_diff = [np.zeros(self.n_par)]
+        # else:
+        #     self.state_gradient_diff = [param_this_round[0] - self.param_last_round[0]]
+        # self.param_last_round = param_this_round
 
         fit_configurations = []
         for client in clients:
@@ -130,43 +141,53 @@ class FedDC(fl.server.strategy.Strategy):
                 'sch_step': 1,
                 'sch_gamma': 1,
                 'lr_decay_per_round': self.config['lr_decay_per_round'],
+                'mean_sample_num': self.mean_sample_num,
             }
             fit_configurations.append((client, FitIns(parameters, config)))
 
         return fit_configurations
 
     def aggregate_fit(
-        self,
-        server_round: int,
-        results: List[Tuple[ClientProxy, FitRes]],
-        failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
+            self,
+            server_round: int,
+            results: List[Tuple[ClientProxy, FitRes]],
+            failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
         """Aggregate fit results using weighted average."""
 
-        print('aggregate fit')
-
         weights_results = [
-            (parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples)
-            for _, fit_res in results
+            parameters_to_weights(fit_res.parameters) for _, fit_res in results
         ]
-        parameters_aggregated = ndarrays_to_parameters(aggregate(weights_results))
+        drift_results = [
+            fit_res.metrics['drift'] for _, fit_res in results
+        ]
+        parameters_aggregated = np.mean(weights_results, axis=0) + np.mean(drift_results, axis=0)
+
+        delta_g_results = [
+            fit_res.metrics['delta_g_cur'] for _, fit_res in results
+        ]
+        delta_g_sum = np.sum(delta_g_results, axis=0)
+        delta_g_cur = 1 / self.data_obj.n_client * delta_g_sum
+        self.state_gradient_diff += delta_g_cur
+
+        parameters_aggregated = weights_to_parameters(parameters_aggregated)
 
         fit_metrics = [(res.num_examples, res.metrics) for _, res in results]
         metrics_aggregated = aggregate_weighted_average(fit_metrics)
         return parameters_aggregated, metrics_aggregated
 
     def configure_evaluate(
-        self, server_round: int, parameters: Parameters, client_manager: ClientManager
+            self, server_round: int, parameters: Parameters, client_manager: ClientManager
     ) -> List[Tuple[ClientProxy, EvaluateIns]]:
         """Configure the next round of evaluation."""
         assert self.fraction_evaluate == 0.0, "FedDC does not support client-side evaluation"
         return []
 
     def aggregate_evaluate(
-        self,
-        server_round: int,
-        results: List[Tuple[ClientProxy, EvaluateRes]],
-        failures: List[Union[Tuple[ClientProxy, EvaluateRes], BaseException]],
+            self,
+            server_round: int,
+            results: List[Tuple[ClientProxy, EvaluateRes]],
+            failures: List[Union[Tuple[ClientProxy, EvaluateRes], BaseException]],
     ) -> Tuple[Optional[float], Dict[str, Scalar]]:
         """Aggregate evaluation losses using weighted average."""
 
@@ -183,10 +204,10 @@ class FedDC(fl.server.strategy.Strategy):
         return loss_aggregated, metrics_aggregated
 
     def evaluate(
-        self, server_round: int, parameters: Parameters
+            self, server_round: int, parameters: Parameters
     ) -> Optional[Tuple[float, Dict[str, Scalar]]]:
         """Evaluate global model parameters using an evaluation function."""
-        cur_cld_model = set_client_from_params(self.model_func(), parameters_to_ndarrays(parameters))
+        cur_cld_model = set_client_from_params(self.model_func(), parameters_to_weights(parameters))
         loss_tst, acc_tst = get_acc_loss(self.data_obj.tst_x, self.data_obj.tst_y,
                                          cur_cld_model, self.data_obj.dataset, 0)
         return loss_tst, {'accuracy': acc_tst}
@@ -200,4 +221,3 @@ class FedDC(fl.server.strategy.Strategy):
         """Use a fraction of available clients for evaluation."""
         num_clients = int(num_available_clients * self.fraction_evaluate)
         return max(num_clients, self.min_evaluate_clients), self.min_available_clients
-

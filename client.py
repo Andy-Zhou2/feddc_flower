@@ -13,33 +13,34 @@ import torch
 
 class FeddcClient(fl.client.NumPyClient):
     def __init__(self, cid, net, client_x, client_y, n_par=None, data_path='./client_sim/'):
-        print('client init')
         self.cid = cid
         self.net = net
         self.client_x = client_x
         self.client_y = client_y
-        self.n_par = n_par if n_par is not None else get_mdl_params([self.net])[0]
+        self.n_par = n_par if n_par is not None else get_mdl_params(self.net)
         self.data_path = data_path
         with open(os.path.join(data_path, 'client_' + str(cid) + '_local_update_last.npy'), 'rb') as f:
-            self.local_update_last = np.load(f)
+            self.state_gradient_diff: np.ndarray = np.load(f)
         with open(os.path.join(data_path, 'client_' + str(cid) + '_params_drift.npy'), 'rb') as f:
-            self.params_drift = np.load(f)
-
-
-    def get_parameters(self, config):
-        return get_mdl_params([self.net], self.n_par)[0]
+            self.params_drift: np.ndarray = np.load(f)
 
     def fit(self, parameters: NDArrays, config: dict[str, Any]) -> tuple[NDArrays, int, dict[str, Any]]:
+        parameters = parameters[0]
         set_client_from_params(self.net, parameters)
+        for params in self.net.parameters():
+            params.requires_grad = True
+
+        weight = len(self.client_y) / config['mean_sample_num']
+        global_update_last = config['global_update_last'] / weight
+        alpha = config['alpha'] / weight
 
         round_num = config['round_num']
-        print('round_num', round_num)
         new_model = train_model_FedDC(
             model=self.net,
             model_func=config['model_func'],
-            alpha=config['alpha'],
-            local_update_last=self.local_update_last,
-            global_update_last=config['global_update_last'],
+            alpha=alpha,
+            local_update_last=self.state_gradient_diff,
+            global_update_last=global_update_last,
             global_model_param=torch.tensor(parameters),
             hist_i=self.params_drift,
             trn_x=self.client_x,
@@ -53,23 +54,38 @@ class FeddcClient(fl.client.NumPyClient):
             sch_step=config['sch_step'],
             sch_gamma=config['sch_gamma'],
         )
-        print('after client feddc train')
 
-        new_model_params = get_mdl_params([new_model])
+        new_model_params = get_mdl_params(new_model)
+        delta_param_curr = new_model_params - parameters
+        self.params_drift += delta_param_curr
+        n_mini_batch = int(np.ceil(len(self.client_y) / config['batch_size']))
+        beta = 1 / n_mini_batch / config['learning_rate']
 
-        local_update_last = new_model_params[0] - parameters[0]
-        self.local_update_last = local_update_last
-        self.params_drift[0] += local_update_last[0]
+        state_g = self.state_gradient_diff - global_update_last + beta * (-delta_param_curr)
+        delta_g_cur = (state_g - self.state_gradient_diff) * weight
 
+
+        # local_update_last: NDArrays = [new_model_params[0] - parameters[0]]
+        # self.local_update_last = local_update_last
+        # print(f'new model weight sum: {np.sum(new_model_params[0])}')
+        # print(f'global model weight sum: {np.sum(parameters[0])}')
+        # print(f'local_update_last sum: {np.sum(local_update_last[0])}')
+        # print(f'param_drift_last sum: {np.sum(self.params_drift[0])}')
+        # self.params_drift[0] += local_update_last[0]
+        # print(f'parameter_drifts[{self.cid}] sum: {np.sum(self.params_drift[0])}')
+        #
+
+        # state_gadient_diffs[clnt] = state_g
         with open(os.path.join(self.data_path, 'client_' + str(self.cid) + '_local_update_last.npy'), 'wb') as f:
-            np.save(f, local_update_last)
+            np.save(f, state_g)
         with open(os.path.join(self.data_path, 'client_' + str(self.cid) + '_params_drift.npy'), 'wb') as f:
             np.save(f, self.params_drift)
-
-        return_param = [get_mdl_params([new_model])[0] + self.params_drift[0]]
-        print('return_param[0]:', return_param[0].shape)
-        print('num samples: ', len(self.client_y))
-        return return_param, len(self.client_y), dict()
+        #
+        # return_param = [get_mdl_params([new_model])[0] + self.params_drift[0]]
+        return [new_model_params], len(self.client_y), {
+            'delta_g_cur': delta_g_cur,
+            'drift': self.params_drift,
+        }
 
     def evaluate(self, parameters, config):
         raise NotImplementedError
@@ -89,9 +105,9 @@ def client_fn(data_obj: DatasetObject, cid: str, model_name: str, n_par=None) ->
     return FeddcClient(cid, model_func(), client_x, client_y, n_par).to_client()
 
 
-def evaluate_fn(data_obj: DatasetObject, model_name: str, server_round: int, parameters: NDArrays, fed_eval_config: dict[str, Any]):
+def evaluate_fn(data_obj: DatasetObject, model_name: str, server_round: int, parameters: NDArrays,
+                fed_eval_config: dict[str, Any]):
     model_func = lambda: client_model(model_name)
     cur_cld_model = set_client_from_params(model_func(), parameters)
     loss_tst, acc_tst = get_acc_loss(data_obj.tst_x, data_obj.tst_y, cur_cld_model, data_obj.dataset, 0)
     return loss_tst, {'accuracy': acc_tst}
-
