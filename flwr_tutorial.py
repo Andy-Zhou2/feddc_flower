@@ -68,17 +68,17 @@ images = images.permute(0, 2, 3, 1).numpy()
 images = images / 2 + 0.5
 
 # Create a figure and a grid of subplots
-fig, axs = plt.subplots(4, 8, figsize=(12, 6))
-
-# Loop over the images and plot them
-for i, ax in enumerate(axs.flat):
-    ax.imshow(images[i])
-    ax.set_title(trainloaders[0].dataset.features["label"].int2str([labels[i]])[0])
-    ax.axis("off")
-
-# Show the plot
-fig.tight_layout()
-plt.show()
+# fig, axs = plt.subplots(4, 8, figsize=(12, 6))
+#
+# # Loop over the images and plot them
+# for i, ax in enumerate(axs.flat):
+#     ax.imshow(images[i])
+#     ax.set_title(trainloaders[0].dataset.features["label"].int2str([labels[i]])[0])
+#     ax.axis("off")
+#
+# # Show the plot
+# fig.tight_layout()
+# plt.show()
 
 class Net(nn.Module):
     def __init__(self) -> None:
@@ -243,7 +243,6 @@ strategy = fl.server.strategy.FedAvg(
     # min_fit_clients=10,
     # min_evaluate_clients=5,
     # min_available_clients=10,
-    evaluate_fn=evaluate_fn
 )
 
 # Start simulation

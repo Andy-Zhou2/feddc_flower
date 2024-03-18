@@ -9,6 +9,12 @@ import numpy as np
 import flwr as fl
 from client import FeddcClient
 import os, shutil
+from typing import Any
+from strategy_feddc import FedDC
+from flwr.common import (
+    ndarrays_to_parameters,
+    parameters_to_ndarrays,
+)
 
 data_path = 'Folder/'  # The folder to save Data & Model
 
@@ -44,9 +50,9 @@ alpha_coef = 0.1
 learning_rate = 0.1
 print_per = 5  # epoch // 2
 
-# n_data_per_client = np.concatenate(data_obj.clnt_x, axis=0).shape[0] / n_client
-# n_iter_per_epoch = np.ceil(n_data_per_client / batch_size)
-# n_minibatch = (epoch * n_iter_per_epoch).astype(np.int64)
+n_data_per_client = np.concatenate(data_obj.clnt_x, axis=0).shape[0] / n_client
+n_iter_per_epoch = np.ceil(n_data_per_client / batch_size)
+n_minibatch = (epoch * n_iter_per_epoch).astype(np.int64)
 
 
 
@@ -56,8 +62,8 @@ if os.path.exists(client_sim_path):
 os.mkdir(client_sim_path)
 
 for c in range(n_client):
-    np.save(client_sim_path + 'client_' + str(c) + '_local_update_last.npy', np.zeros(n_par))
-    np.save(client_sim_path + 'client_' + str(c) + '_params_drift.npy', np.zeros(n_par))
+    np.save(client_sim_path + 'client_' + str(c) + '_local_update_last.npy', [np.zeros(n_par)])
+    np.save(client_sim_path + 'client_' + str(c) + '_params_drift.npy', [np.zeros(n_par)])
 
 # [avg_ins_mdls, avg_cld_mdls, avg_all_mdls, trn_sel_clt_perf, tst_sel_clt_perf, trn_cur_cld_perf, tst_cur_cld_perf, trn_all_clt_perf, tst_all_clt_perf] = train_FedDC(data_obj=data_obj, act_prob=act_prob, n_minibatch=n_minibatch,
 #                                     learning_rate=learning_rate, batch_size=batch_size, epoch=epoch,
@@ -67,13 +73,27 @@ for c in range(n_client):
 #                                     data_path=data_path, lr_decay_per_round=lr_decay_per_round)
 
 
-strategy = fl.server.strategy.FedAvg(
-    fraction_fit=0.15,
+feddc_config = {
+        'alpha': alpha_coef,
+        'learning_rate': learning_rate,
+        'batch_size': batch_size,
+        'epoch': epoch,
+        'print_per': print_per,
+        'weight_decay': weight_decay,
+        'dataset_name': data_obj.dataset,
+        'lr_decay_per_round': lr_decay_per_round,
+    }
+
+strategy = FedDC(
+    data_obj=data_obj,
+    model_func=model_func,
+    config=feddc_config,
+    fraction_fit=0.02,
     fraction_evaluate=0,
     # min_fit_clients=10,
     # min_evaluate_clients=5,
     # min_available_clients=10,
-    evaluate_metrics_aggregation_fn=partial(evaluate_fn, data_obj=data_obj, model_name=model_name),  # <-- pass the metric aggregation function
+    initial_parameters=ndarrays_to_parameters(get_mdl_params([init_model])),
 )
 
 fl.simulation.start_simulation(

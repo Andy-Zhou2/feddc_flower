@@ -50,6 +50,10 @@ def get_acc_loss(data_x, data_y, model, dataset_name, w_decay = None):
 
 # --- Helper functions
 def set_client_from_params(mdl, params):
+    # if params of dim (1, D), then convert to (D,)
+    if isinstance(params, list):
+        assert len(params) == 1, "if params is NDArray, then it should be a list of length 1"
+        params = params[0]
     dict_param = copy.deepcopy(dict(mdl.named_parameters()))
     idx = 0
     for name, param in mdl.named_parameters():

@@ -8,10 +8,12 @@ import numpy as np
 from flwr.common.typing import NDArrays, Scalar
 from typing import Any
 from utils_general import get_acc_loss
+import torch
 
 
 class FeddcClient(fl.client.NumPyClient):
     def __init__(self, cid, net, client_x, client_y, n_par=None, data_path='./client_sim/'):
+        print('client init')
         self.cid = cid
         self.net = net
         self.client_x = client_x
@@ -27,23 +29,22 @@ class FeddcClient(fl.client.NumPyClient):
     def get_parameters(self, config):
         return get_mdl_params([self.net], self.n_par)[0]
 
-    def fit(self, parameters, config):
-        parameters = np.array(parameters)
-        print(f'fit parameters: {len(parameters)}, {parameters[0]}')
+    def fit(self, parameters: NDArrays, config: dict[str, Any]) -> tuple[NDArrays, int, dict[str, Any]]:
         set_client_from_params(self.net, parameters)
 
         round_num = config['round_num']
+        print('round_num', round_num)
         new_model = train_model_FedDC(
             model=self.net,
             model_func=config['model_func'],
             alpha=config['alpha'],
             local_update_last=self.local_update_last,
             global_update_last=config['global_update_last'],
-            global_model_param=parameters,  # might need to be tensor
+            global_model_param=torch.tensor(parameters),
             hist_i=self.params_drift,
             trn_x=self.client_x,
             trn_y=self.client_y,
-            learning_rate=config['learning_rate'] * (config['lr_decay_per_round'] ** round_num),
+            learning_rate=config['learning_rate'] * (config['lr_decay_per_round'] ** (round_num - 1)),
             batch_size=config['batch_size'],
             epoch=config['epoch'],
             print_per=config['print_per'],
@@ -52,19 +53,23 @@ class FeddcClient(fl.client.NumPyClient):
             sch_step=config['sch_step'],
             sch_gamma=config['sch_gamma'],
         )
+        print('after client feddc train')
 
-        new_model_params = get_mdl_params([new_model])[0]
+        new_model_params = get_mdl_params([new_model])
 
-        local_update_last = new_model_params - parameters
+        local_update_last = new_model_params[0] - parameters[0]
         self.local_update_last = local_update_last
-        self.params_drift += local_update_last
+        self.params_drift[0] += local_update_last[0]
 
         with open(os.path.join(self.data_path, 'client_' + str(self.cid) + '_local_update_last.npy'), 'wb') as f:
             np.save(f, local_update_last)
         with open(os.path.join(self.data_path, 'client_' + str(self.cid) + '_params_drift.npy'), 'wb') as f:
             np.save(f, self.params_drift)
 
-        return get_mdl_params([new_model])[0] + self.params_drift, len(self.client_y), {}
+        return_param = [get_mdl_params([new_model])[0] + self.params_drift[0]]
+        print('return_param[0]:', return_param[0].shape)
+        print('num samples: ', len(self.client_y))
+        return return_param, len(self.client_y), dict()
 
     def evaluate(self, parameters, config):
         raise NotImplementedError
