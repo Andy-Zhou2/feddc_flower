@@ -164,8 +164,8 @@ class DatasetObject:
 
                         break
                 
-                clnt_x = np.asarray(clnt_x)
-                clnt_y = np.asarray(clnt_y)
+                clnt_x = np.asarray(clnt_x, dtype=object)
+                clnt_y = np.asarray(clnt_y, dtype=object)
                 
                 cls_means = np.zeros((self.n_client, self.n_cls))
                 for clnt in range(self.n_client):
