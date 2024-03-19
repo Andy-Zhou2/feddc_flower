@@ -1,7 +1,7 @@
 from collections import OrderedDict
 from typing import List, Tuple, Any
 
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
@@ -14,7 +14,8 @@ import flwr as fl
 from flwr.common import Metrics
 from flwr_datasets import FederatedDataset
 from flwr.common.typing import NDArrays, Scalar
-
+from flwr.common.record import Array, ParametersRecord
+from collections import OrderedDict
 
 
 DEVICE = torch.device("cpu")  # Try "cuda" to train on GPU
@@ -162,16 +163,40 @@ def get_parameters(net) -> List[np.ndarray]:
     return [val.cpu().numpy() for _, val in net.state_dict().items()]
 
 
+def _ndarray_to_array(ndarray):
+    """Represent NumPy ndarray as Array."""
+    return Array(
+        data=ndarray.tobytes(),
+        dtype=str(ndarray.dtype),
+        stype="numpy.ndarray.tobytes",
+        shape=list(ndarray.shape),
+    )
+
+def _basic_array_deserialisation(array: Array):
+    return np.frombuffer(buffer=array.data, dtype=array.dtype).reshape(array.shape)
+
 class FlowerClient(fl.client.NumPyClient):
-    def __init__(self, net, trainloader, valloader):
+    def __init__(self, net, trainloader, valloader, cid):
         self.net = net
         self.trainloader = trainloader
         self.valloader = valloader
+        self.cid = int(cid)
 
     def get_parameters(self, config):
         return get_parameters(self.net)
 
     def fit(self, parameters, config):
+        state = self.context.state
+        local_model_state = state.parameters_records.get('local_model', None)
+        print(self.cid, local_model_state)
+        if local_model_state is None:
+            d = OrderedDict()
+            d['a'] = _ndarray_to_array(np.array([self.cid]))
+            state.parameters_records['local_model'] = ParametersRecord(d)
+        else:
+            print(_basic_array_deserialisation(local_model_state['a']))
+
+
         set_parameters(self.net, parameters)
         train(self.net, self.trainloader, epochs=1)
         return get_parameters(self.net), len(self.trainloader), {}
@@ -184,7 +209,7 @@ class FlowerClient(fl.client.NumPyClient):
 def client_fn(cid: str) -> FlowerClient:
     """Create a Flower client representing a single organization."""
 
-    print('creating client', cid)
+    # print('creating client', cid)
     # Load model
     net = Net().to(DEVICE)
 
@@ -195,7 +220,7 @@ def client_fn(cid: str) -> FlowerClient:
     valloader = valloaders[int(cid)]
 
     # Create a  single Flower client representing a single organization
-    return FlowerClient(net, trainloader, valloader).to_client()
+    return FlowerClient(net, trainloader, valloader, cid).to_client()
 
 # Create FedAvg strategy
 # strategy = fl.server.strategy.FedAvg(
