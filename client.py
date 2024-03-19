@@ -25,7 +25,7 @@ class FeddcClient(fl.client.NumPyClient):
             self.params_drift: np.ndarray = np.load(f)
 
     def fit(self, parameters: NDArrays, config: dict[str, Any]) -> tuple[NDArrays, int, dict[str, Any]]:
-        print(f'--------training client {self.cid}-------------')
+        # print(f'--------training client {self.cid}-------------')
         parameters = parameters[0]
         set_client_from_params(self.net, parameters)
         for params in self.net.parameters():

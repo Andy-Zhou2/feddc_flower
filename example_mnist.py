@@ -18,20 +18,21 @@ data_path = 'Folder/'  # The folder to save Data & Model
 # Generate IID or Dirichlet distribution
 # IID
 n_client = 100
-data_obj = DatasetObject(dataset='mnist', n_client=n_client, seed=23, rule='iid', unbalanced_sgm=0, data_path=data_path)
+# data_obj = DatasetObject(dataset='mnist', n_client=n_client, seed=23, rule='iid', unbalanced_sgm=0, data_path=data_path)
+data_obj = DatasetObject(dataset='CIFAR10', n_client=n_client, seed=23, rule='iid', unbalanced_sgm=0, data_path=data_path)
 
 # Dirichlet (0.6)
 # data_obj = DatasetObject(dataset='CIFAR10', n_client=n_client, seed=20, unbalanced_sgm=0, rule='Drichlet', rule_arg=0.6, data_path=data_path)
 
-model_name = 'mnist_2NN'  # Model type
+# model_name = 'mnist_2NN'  # Model type
+model_name = 'cifar10_LeNet'  # Model type
 
 # Common hyperparameters
-com_amount = 300
+com_amount = 60
 save_period = 100
 weight_decay = 1e-3
 batch_size = 50
-# act_prob = 0.15
-act_prob = 0.15
+act_prob = 1
 suffix = model_name
 lr_decay_per_round = 0.998
 
