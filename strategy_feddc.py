@@ -65,7 +65,6 @@ class FedDC(fl.server.strategy.Strategy):
             data_obj: DatasetObject,
             config: Dict[str, Scalar],
             n_par: int,
-            client_sim_path: str,
             initial_parameters: Parameters,
             fraction_fit: float = 1.0,
             fraction_evaluate: float = 1.0,
@@ -85,7 +84,6 @@ class FedDC(fl.server.strategy.Strategy):
         self.state_gradient_diff = np.zeros(n_par)
         self.n_par = n_par
         self.config = dict() if config is None else config
-        self.client_sim_path = client_sim_path
 
         # prepare weight_list
         # weight_list[i] is the #samples of client i / mean sample numbers per client

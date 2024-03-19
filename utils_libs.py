@@ -4,7 +4,7 @@ import numpy as np
 # import matplotlib.pyplot as plt
 # from scipy.stats import multivariate_normal
 # from scipy.optimize import minimize
-# from scipy import io
+from scipy import io
 import torch
 from torch.utils import data
 import torchvision

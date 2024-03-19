@@ -86,7 +86,7 @@ strategy = FedDC(
     fraction_evaluate=0,
     initial_parameters=weights_to_parameters(get_mdl_params(init_model, n_par)),
     n_par=n_par,
-    client_sim_path=client_sim_path,
+    # client_sim_path=client_sim_path,
 )
 
 fl.simulation.start_simulation(
