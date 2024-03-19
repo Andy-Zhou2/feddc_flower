@@ -6,7 +6,8 @@ import numpy as np
 from collections import defaultdict
 import numbers
 from utils_general import (set_client_from_params, get_acc_loss,
-                           weights_to_parameters, parameters_to_weights)
+                           weights_to_parameters, parameters_to_weights,
+                           ndarray_to_array, basic_array_deserialisation)
 from utils_dataset import DatasetObject
 import torch
 import os
@@ -99,8 +100,9 @@ class FedDC(fl.server.strategy.Strategy):
         self.all_client_average_weight = None
 
         init_par_list = parameters_to_weights(initial_parameters)
-        self.client_params_list = np.ones(data_obj.n_client).astype('float32').reshape(-1, 1) * init_par_list.reshape(1,
-                                                                                                    -1)  # n_clnt X n_par
+        self.all_client_params = np.ones(data_obj.n_client).astype('float32').reshape(-1, 1) * init_par_list.reshape(1,
+                                                                                                                     -1)  # n_clnt X n_par
+        self.all_client_drifts = np.zeros((data_obj.n_client, n_par))
 
     def __repr__(self) -> str:
         return "FedDC"
@@ -136,12 +138,14 @@ class FedDC(fl.server.strategy.Strategy):
         # self.param_last_round = param_this_round
 
         fit_configurations = []
+        # from flwr.common.typing import ConfigsRecordValues
+        # print('isinstance: ', isinstance(ndarray_to_array(self.state_gradient_diff), ConfigsRecordValues))
         for client in clients:
             config = {
                 'round_num': server_round,
-                'model_func': self.model_func,
                 'alpha': self.config['alpha'],
-                'global_update_last': self.state_gradient_diff,
+                'global_update_last': self.state_gradient_diff.astype(np.float64).tobytes(),
+                # self.state_gradient_diff,
                 'learning_rate': self.config['learning_rate'],
                 'batch_size': self.config['batch_size'],
                 'epoch': self.config['epoch'],
@@ -169,13 +173,15 @@ class FedDC(fl.server.strategy.Strategy):
             parameters_to_weights(fit_res.parameters) for _, fit_res in results
         ]
         drift_results = [
-            fit_res.metrics['drift'] for _, fit_res in results
+            np.frombuffer(fit_res.metrics['drift'], dtype=np.float64) for _, fit_res in results
         ]
         parameters_aggregated = np.mean(weights_results, axis=0) + np.mean(drift_results, axis=0)
 
         delta_g_results = [
-            fit_res.metrics['delta_g_cur'] for _, fit_res in results
+            np.frombuffer(fit_res.metrics['delta_g_cur'], dtype=np.float64) for _, fit_res in results
         ]
+
+        cid_results = [int(client.cid) for client, _ in results]
         delta_g_sum = np.sum(delta_g_results, axis=0)
         # print(f'delta_g_sum sum: {np.sum(delta_g_sum)}')
         delta_g_cur = 1 / self.data_obj.n_client * delta_g_sum
@@ -184,16 +190,20 @@ class FedDC(fl.server.strategy.Strategy):
 
         selected_clients_average_weight = np.mean(weights_results, axis=0)
 
-        all_client_weights = np.zeros(self.n_par)
-        all_client_drifts = np.zeros(self.n_par)
-        for c in range(self.data_obj.n_client):
-            all_client_weights += np.load(os.path.join(self.client_sim_path, 'client_' + str(c) + '_model_weights.npy'))
-            all_client_drifts += np.load(os.path.join(self.client_sim_path, 'client_' + str(c) + '_params_drift.npy'))
-        all_client_weights /= self.data_obj.n_client
-        all_client_drifts /= self.data_obj.n_client
+        # update global record of client weights and drifts
+        self.all_client_params[cid_results] = weights_results
+        self.all_client_drifts[cid_results] = drift_results
 
-        cloud_model_weight = selected_clients_average_weight + all_client_drifts
-        all_client_average_weight = all_client_weights
+        # avg_all_client_weights = np.zeros(self.n_par)
+        # avg_all_client_drifts = np.zeros(self.n_par)
+        # for c in range(self.data_obj.n_client):
+        #     avg_all_client_weights += np.load(os.path.join(self.client_sim_path, 'client_' + str(c) + '_model_weights.npy'))
+        #     avg_all_client_drifts += np.load(os.path.join(self.client_sim_path, 'client_' + str(c) + '_params_drift.npy'))
+        avg_all_client_weights = np.sum(self.all_client_params, axis=0) / self.data_obj.n_client
+        avg_all_client_drifts = np.sum(self.all_client_drifts, axis=0) / self.data_obj.n_client
+
+        cloud_model_weight = selected_clients_average_weight + avg_all_client_drifts
+        all_client_average_weight = avg_all_client_weights
 
         parameters_aggregated = weights_to_parameters(cloud_model_weight)
 
@@ -251,7 +261,7 @@ class FedDC(fl.server.strategy.Strategy):
                                              selected_client_model, self.data_obj.dataset, 0)
             results['test_selected'] = {'loss': loss_tst, 'accuracy': acc_tst}
             loss_tst, acc_tst = get_acc_loss(self.cent_x, self.cent_y,
-                                                selected_client_model, self.data_obj.dataset, 0)
+                                             selected_client_model, self.data_obj.dataset, 0)
             results['cent_selected'] = {'loss': loss_tst, 'accuracy': acc_tst}
 
         if self.all_client_average_weight is not None:
@@ -262,7 +272,6 @@ class FedDC(fl.server.strategy.Strategy):
             loss_tst, acc_tst = get_acc_loss(self.cent_x, self.cent_y,
                                              all_client_model, self.data_obj.dataset, 0)
             results['cent_all'] = {'loss': loss_tst, 'accuracy': acc_tst}
-
 
         return results['test_cld']['loss'], results
 

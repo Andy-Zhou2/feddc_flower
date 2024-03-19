@@ -31,7 +31,7 @@ class FeddcClient(fl.client.NumPyClient):
         #     self.params_drift: np.ndarray = np.load(f)
 
     def fit(self, parameters: NDArrays, config: dict[str, Any]) -> tuple[NDArrays, int, dict[str, Any]]:
-        # print(f'--------training client {self.cid}-------------')
+        print(f'--------training client {self.cid}-------------')
         parameters = parameters[0]
         set_client_from_params(self.net, parameters)
         for params in self.net.parameters():
@@ -40,22 +40,23 @@ class FeddcClient(fl.client.NumPyClient):
         # retrieve state_gradient_diffs and param_drifts from state
         state = self.context.state
         saved_state = state.parameters_records.get('saved_states', ParametersRecord(None))
-        if saved_state is None:
+        if not saved_state:  # None
             state_gradient_diff = np.zeros(self.n_par)
             params_drift = np.zeros(self.n_par)
         else:
-            state_gradient_diff = basic_array_deserialisation(saved_state['state_gradient_diff'])
-            params_drift = basic_array_deserialisation(saved_state['params_drift'])
+            state_gradient_diff = basic_array_deserialisation(saved_state['state_gradient_diff']).copy()
+            params_drift = basic_array_deserialisation(saved_state['params_drift']).copy()
 
 
         weight = len(self.client_y) / config['mean_sample_num']
-        global_update_last = config['global_update_last'] / weight
+        global_update_last = np.frombuffer(config['global_update_last'], dtype=np.float64)  # protocol: use float64
+        global_update_last = global_update_last / weight
         alpha = config['alpha'] / weight
 
         round_num = config['round_num']
         new_model = train_model_FedDC(
             model=self.net,
-            model_func=config['model_func'],
+            model_func=self.model_func,
             alpha=alpha,
             local_update_last=state_gradient_diff,
             global_update_last=global_update_last,
@@ -104,8 +105,8 @@ class FeddcClient(fl.client.NumPyClient):
         #     np.save(f, new_model_params)
 
         return [new_model_params], len(self.client_y), {
-            'delta_g_cur': delta_g_cur,
-            'drift': params_drift,
+            'delta_g_cur': delta_g_cur.astype(np.float64).tobytes(),
+            'drift': params_drift.astype(np.float64).tobytes(),
             'cid': self.cid,
         }
 
