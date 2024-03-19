@@ -28,7 +28,7 @@ data_obj = DatasetObject(dataset='CIFAR10', n_client=n_client, seed=23, rule='ii
 model_name = 'cifar10_LeNet'  # Model type
 
 # Common hyperparameters
-com_amount = 60
+com_amount = 2
 save_period = 100
 weight_decay = 1e-3
 batch_size = 50
@@ -57,16 +57,6 @@ n_data_per_client = np.concatenate(data_obj.clnt_x, axis=0).shape[0] / n_client
 n_iter_per_epoch = np.ceil(n_data_per_client / batch_size)
 n_minibatch = (epoch * n_iter_per_epoch).astype(np.int64)
 
-# client_sim_path = './client_sim/'
-# if os.path.exists(client_sim_path):
-#     shutil.rmtree(client_sim_path)
-# os.mkdir(client_sim_path)
-
-# for c in range(n_client):
-    # np.save(os.path.join(client_sim_path, 'client_' + str(c) + '_local_update_last.npy'), np.zeros(n_par))
-    # np.save(os.path.join(client_sim_path, 'client_' + str(c) + '_params_drift.npy'), np.zeros(n_par))
-    # np.save(os.path.join(client_sim_path, 'client_' + str(c) + '_model_weights.npy'), init_weights)
-
 feddc_config = {
     'alpha': alpha_coef,
     'learning_rate': learning_rate,
@@ -94,5 +84,5 @@ fl.simulation.start_simulation(
     num_clients=n_client,
     config=fl.server.ServerConfig(num_rounds=com_amount),
     strategy=strategy,
-    client_resources={"num_cpus": 16, "num_gpus": 0.0},
+    client_resources={"num_cpus": 4, "num_gpus": 0.0},
 )

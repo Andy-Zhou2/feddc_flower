@@ -1,9 +1,7 @@
 import flwr as fl
-from flwr.common import Metrics
 from utils_dataset import DatasetObject
 from utils_models import client_model
 from utils_general import get_mdl_params, set_client_from_params, train_model_FedDC
-import os
 import numpy as np
 from flwr.common.typing import NDArrays, Scalar
 from typing import Any
@@ -22,13 +20,7 @@ class FeddcClient(fl.client.NumPyClient):
         self.n_par = n_par if n_par is not None else get_mdl_params(self.net)
         self.data_path = data_path
         self.model_func = model_func
-        
-        
 
-        # with open(os.path.join(data_path, 'client_' + str(cid) + '_local_update_last.npy'), 'rb') as f:
-        #     self.state_gradient_diff: np.ndarray = np.load(f)
-        # with open(os.path.join(data_path, 'client_' + str(cid) + '_params_drift.npy'), 'rb') as f:
-        #     self.params_drift: np.ndarray = np.load(f)
 
     def fit(self, parameters: NDArrays, config: dict[str, Any]) -> tuple[NDArrays, int, dict[str, Any]]:
         print(f'--------training client {self.cid}-------------')
@@ -77,14 +69,10 @@ class FeddcClient(fl.client.NumPyClient):
         new_model_params = get_mdl_params(new_model)
         delta_param_curr = new_model_params - parameters
         params_drift += delta_param_curr
-        # print(f'parameter_drifts sum: {np.sum(self.params_drift)}, delta_param_curr sum: {np.sum(delta_param_curr)}')
         n_mini_batch = np.ceil(config['mean_sample_num'] / config['batch_size']) * config['epoch']
         beta = 1 / n_mini_batch / config['learning_rate']
-        # print(f'n_mini_batch: {n_mini_batch}, lr: {config["learning_rate"]}, beta: {beta}')
 
         state_g = state_gradient_diff - global_update_last + beta * (-delta_param_curr)
-        # print(
-        #     f'state_g sum: {np.sum(state_g)}, local_update_last sum: {np.sum(self.state_gradient_diff):.4f}, global_update_last sum: {np.sum(global_update_last):.4f}, beta: {beta:.4f}')
 
         delta_g_cur = (state_g - state_gradient_diff) * weight
 
@@ -92,17 +80,6 @@ class FeddcClient(fl.client.NumPyClient):
         saved_state['state_gradient_diff'] = ndarray_to_array(state_g)
         saved_state['params_drift'] = ndarray_to_array(params_drift)
         state.parameters_records['saved_states'] = ParametersRecord(saved_state)
-
-        # # update state_gadient_diffs[clnt] = state_g
-        # with open(os.path.join(self.data_path, 'client_' + str(self.cid) + '_local_update_last.npy'), 'wb') as f:
-        #     np.save(f, state_g)
-        #
-        # # update param_drifts
-        # with open(os.path.join(self.data_path, 'client_' + str(self.cid) + '_params_drift.npy'), 'wb') as f:
-        #     np.save(f, self.params_drift)
-        # # update model weights
-        # with open(os.path.join(self.data_path, 'client_' + str(self.cid) + '_model_weights.npy'), 'wb') as f:
-        #     np.save(f, new_model_params)
 
         return [new_model_params], len(self.client_y), {
             'delta_g_cur': delta_g_cur.astype(np.float64).tobytes(),
@@ -112,9 +89,6 @@ class FeddcClient(fl.client.NumPyClient):
 
     def evaluate(self, parameters, config):
         raise NotImplementedError
-        # set_client_from_params(self.net, parameters)
-        # loss, accuracy = test(self.net, self.valloader)
-        # return float(loss), len(self.valloader), {"accuracy": float(accuracy)}
 
 
 def client_fn(data_obj: DatasetObject, cid: str, model_name: str, n_par=None) -> fl.client.Client:

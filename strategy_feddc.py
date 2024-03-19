@@ -7,7 +7,7 @@ from collections import defaultdict
 import numbers
 from utils_general import (set_client_from_params, get_acc_loss,
                            weights_to_parameters, parameters_to_weights,
-                           ndarray_to_array, basic_array_deserialisation)
+                           ndarray_to_array, basic_array_deserialisation, device)
 from utils_dataset import DatasetObject
 import torch
 import os
@@ -126,18 +126,7 @@ class FedDC(fl.server.strategy.Strategy):
             num_clients=sample_size, min_num_clients=min_num_clients
         )
 
-        # param_this_round = parameters_to_ndarrays(parameters)
-        # if server_round == 1:
-        #     if self.n_par is None:
-        #         self.n_par = param_this_round[0].size
-        #     self.state_gradient_diff = [np.zeros(self.n_par)]
-        # else:
-        #     self.state_gradient_diff = [param_this_round[0] - self.param_last_round[0]]
-        # self.param_last_round = param_this_round
-
         fit_configurations = []
-        # from flwr.common.typing import ConfigsRecordValues
-        # print('isinstance: ', isinstance(ndarray_to_array(self.state_gradient_diff), ConfigsRecordValues))
         for client in clients:
             config = {
                 'round_num': server_round,
@@ -173,7 +162,6 @@ class FedDC(fl.server.strategy.Strategy):
         drift_results = [
             np.frombuffer(fit_res.metrics['drift'], dtype=np.float64) for _, fit_res in results
         ]
-        parameters_aggregated = np.mean(weights_results, axis=0) + np.mean(drift_results, axis=0)
 
         delta_g_results = [
             np.frombuffer(fit_res.metrics['delta_g_cur'], dtype=np.float64) for _, fit_res in results
@@ -181,9 +169,7 @@ class FedDC(fl.server.strategy.Strategy):
 
         cid_results = [int(client.cid) for client, _ in results]
         delta_g_sum = np.sum(delta_g_results, axis=0)
-        # print(f'delta_g_sum sum: {np.sum(delta_g_sum)}')
         delta_g_cur = 1 / self.data_obj.n_client * delta_g_sum
-        # print(f'delta_g_cur sum: {np.sum(delta_g_cur)}')
         self.state_gradient_diff += delta_g_cur
 
         selected_clients_average_weight = np.mean(weights_results, axis=0)
@@ -192,11 +178,6 @@ class FedDC(fl.server.strategy.Strategy):
         self.all_client_params[cid_results] = weights_results
         self.all_client_drifts[cid_results] = drift_results
 
-        # avg_all_client_weights = np.zeros(self.n_par)
-        # avg_all_client_drifts = np.zeros(self.n_par)
-        # for c in range(self.data_obj.n_client):
-        #     avg_all_client_weights += np.load(os.path.join(self.client_sim_path, 'client_' + str(c) + '_model_weights.npy'))
-        #     avg_all_client_drifts += np.load(os.path.join(self.client_sim_path, 'client_' + str(c) + '_params_drift.npy'))
         avg_all_client_weights = np.sum(self.all_client_params, axis=0) / self.data_obj.n_client
         avg_all_client_drifts = np.sum(self.all_client_drifts, axis=0) / self.data_obj.n_client
 
@@ -209,8 +190,6 @@ class FedDC(fl.server.strategy.Strategy):
         self.selected_clients_average_weight = selected_clients_average_weight
         self.all_client_average_weight = all_client_average_weight
 
-        # fit_metrics = [(res.num_examples, res.metrics) for _, res in results]
-        # metrics_aggregated = aggregate_weighted_average(fit_metrics)
         return parameters_aggregated, {}
 
     def configure_evaluate(
