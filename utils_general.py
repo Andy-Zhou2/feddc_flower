@@ -9,7 +9,7 @@ import numpy as np
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 device = torch.device("cpu")  # "cuda:0" if torch.cuda.is_available() else "cpu")
-from torch.utils.tensorboard import SummaryWriter
+from flwr.common.record import Array, ParametersRecord
 
 import time
 
@@ -100,6 +100,17 @@ def get_mdl_params(models: list[torch.nn.Module] | torch.nn.Module, n_par=None):
     else:
         return result
 
+def ndarray_to_array(ndarray):
+    """Represent NumPy ndarray as Array."""
+    return Array(
+        data=ndarray.tobytes(),
+        dtype=str(ndarray.dtype),
+        stype="numpy.ndarray.tobytes",
+        shape=list(ndarray.shape),
+    )
+
+def basic_array_deserialisation(array: Array):
+    return np.frombuffer(buffer=array.data, dtype=array.dtype).reshape(array.shape)
 
 def train_model_FedDC(model, model_func, alpha, local_update_last, global_update_last, global_model_param, hist_i,
                       trn_x, trn_y,

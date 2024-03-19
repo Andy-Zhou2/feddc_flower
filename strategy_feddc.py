@@ -65,12 +65,12 @@ class FedDC(fl.server.strategy.Strategy):
             config: Dict[str, Scalar],
             n_par: int,
             client_sim_path: str,
+            initial_parameters: Parameters,
             fraction_fit: float = 1.0,
             fraction_evaluate: float = 1.0,
             min_fit_clients: int = 2,
             min_evaluate_clients: int = 2,
-            min_available_clients: int = 2,
-            initial_parameters: Optional[Parameters] = None
+            min_available_clients: int = 2
     ) -> None:
         super().__init__()
         self.model_func = model_func
@@ -97,6 +97,10 @@ class FedDC(fl.server.strategy.Strategy):
 
         self.selected_clients_average_weight = None
         self.all_client_average_weight = None
+
+        init_par_list = parameters_to_weights(initial_parameters)
+        self.client_params_list = np.ones(data_obj.n_client).astype('float32').reshape(-1, 1) * init_par_list.reshape(1,
+                                                                                                    -1)  # n_clnt X n_par
 
     def __repr__(self) -> str:
         return "FedDC"

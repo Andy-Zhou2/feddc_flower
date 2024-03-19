@@ -187,9 +187,9 @@ class FlowerClient(fl.client.NumPyClient):
 
     def fit(self, parameters, config):
         state = self.context.state
-        local_model_state = state.parameters_records.get('local_model', None)
+        local_model_state = state.parameters_records.get('local_model', ParametersRecord(None))
         print(self.cid, local_model_state)
-        if local_model_state is None:
+        if not local_model_state:
             d = OrderedDict()
             d['a'] = _ndarray_to_array(np.array([self.cid]))
             state.parameters_records['local_model'] = ParametersRecord(d)

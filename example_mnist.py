@@ -63,8 +63,8 @@ if os.path.exists(client_sim_path):
 os.mkdir(client_sim_path)
 
 for c in range(n_client):
-    np.save(os.path.join(client_sim_path, 'client_' + str(c) + '_local_update_last.npy'), np.zeros(n_par))
-    np.save(os.path.join(client_sim_path, 'client_' + str(c) + '_params_drift.npy'), np.zeros(n_par))
+    # np.save(os.path.join(client_sim_path, 'client_' + str(c) + '_local_update_last.npy'), np.zeros(n_par))
+    # np.save(os.path.join(client_sim_path, 'client_' + str(c) + '_params_drift.npy'), np.zeros(n_par))
     np.save(os.path.join(client_sim_path, 'client_' + str(c) + '_model_weights.npy'), init_weights)
 
 feddc_config = {
