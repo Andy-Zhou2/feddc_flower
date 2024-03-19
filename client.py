@@ -5,7 +5,7 @@ from utils_general import get_mdl_params, set_client_from_params, train_model_Fe
 import numpy as np
 from flwr.common.typing import NDArrays, Scalar
 from typing import Any
-from utils_general import get_acc_loss, basic_array_deserialisation, ndarray_to_array
+from utils_general import get_acc_loss, basic_array_deserialisation, ndarray_to_array, device
 import torch
 from collections import OrderedDict
 from flwr.common import ParametersRecord
@@ -26,6 +26,8 @@ class FeddcClient(fl.client.NumPyClient):
         print(f'--------training client {self.cid}-------------')
         parameters = parameters[0]
         set_client_from_params(self.net, parameters)
+        self.net.to(device)
+        self.net.train()
         for params in self.net.parameters():
             params.requires_grad = True
         
@@ -52,8 +54,8 @@ class FeddcClient(fl.client.NumPyClient):
             alpha=alpha,
             local_update_last=state_gradient_diff,
             global_update_last=global_update_last,
-            global_model_param=torch.tensor(parameters),
-            hist_i=params_drift,
+            global_model_param=torch.tensor(parameters).to(device),
+            hist_i=torch.tensor(params_drift).to(device),
             trn_x=self.client_x,
             trn_y=self.client_y,
             learning_rate=config['learning_rate'] * (config['lr_decay_per_round'] ** (round_num - 1)),

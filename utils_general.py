@@ -8,7 +8,7 @@ import numpy as np
 # Global parameters
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-device = torch.device("cpu")  # "cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 from flwr.common.record import Array, ParametersRecord
 
 import time
