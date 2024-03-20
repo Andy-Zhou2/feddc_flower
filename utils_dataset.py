@@ -164,8 +164,8 @@ class DatasetObject:
 
                         break
                 
-                clnt_x = np.asarray(clnt_x, dtype=object)
-                clnt_y = np.asarray(clnt_y, dtype=object)
+                # clnt_x = np.asarray(clnt_x, dtype=object)
+                # clnt_y = np.asarray(clnt_y, dtype=object)
                 
                 cls_means = np.zeros((self.n_client, self.n_cls))
                 for clnt in range(self.n_client):
@@ -204,8 +204,8 @@ class DatasetObject:
                     clnt_y[clnt_idx_] = trn_y[clnt_data_list_cum_sum[clnt_idx_]:clnt_data_list_cum_sum[clnt_idx_+1]]
                 
                 
-                clnt_x = np.asarray(clnt_x, dtype=object)
-                clnt_y = np.asarray(clnt_y, dtype=object)
+                # clnt_x = np.asarray(clnt_x, dtype=object)
+                # clnt_y = np.asarray(clnt_y, dtype=object)
 
             
             self.clnt_x = clnt_x; self.clnt_y = clnt_y
@@ -540,6 +540,7 @@ class Dataset(torch.utils.data.Dataset):
     
     def __init__(self, data_x, data_y=True, train=False, dataset_name=''):
         self.name = dataset_name
+        # print('Dataset, data_x.shape and dtype:', data_x.shape, data_x.dtype, 'data_y.shape and dtype:', data_y.shape, data_y.dtype)
         if self.name == 'mnist' or self.name == 'synt' or self.name == 'emnist' :
             self.X_data = torch.tensor(data_x).float()
             self.y_data = data_y
