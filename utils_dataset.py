@@ -541,10 +541,10 @@ class Dataset(torch.utils.data.Dataset):
     def __init__(self, data_x, data_y=True, train=False, dataset_name=''):
         self.name = dataset_name
         if self.name == 'mnist' or self.name == 'synt' or self.name == 'emnist' :
-            self.X_data = torch.tensor(data_x.astype(np.float32)).float()
+            self.X_data = torch.tensor(data_x).float()
             self.y_data = data_y
             if not isinstance(data_y, bool):
-                self.y_data = torch.tensor(data_y.astype(np.float32)).float()
+                self.y_data = torch.tensor(data_y).float()
             
         elif self.name == 'CIFAR10' or self.name == 'CIFAR100':
             self.train = train
