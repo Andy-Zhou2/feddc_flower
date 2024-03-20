@@ -163,9 +163,13 @@ class DatasetObject:
                         clnt_y[curr_clnt][clnt_data_list[curr_clnt]] = trn_y[idx_list[cls_label][cls_amount[cls_label]]]
 
                         break
-                
-                # clnt_x = np.asarray(clnt_x, dtype=object)
-                # clnt_y = np.asarray(clnt_y, dtype=object)
+
+                try:
+                    clnt_x = np.asarray(clnt_x)
+                    clnt_y = np.asarray(clnt_y)
+                except ValueError:
+                    clnt_x = np.asarray(clnt_x, dtype=object)
+                    clnt_y = np.asarray(clnt_y, dtype=object)
                 
                 cls_means = np.zeros((self.n_client, self.n_cls))
                 for clnt in range(self.n_client):
@@ -203,9 +207,12 @@ class DatasetObject:
                     clnt_x[clnt_idx_] = trn_x[clnt_data_list_cum_sum[clnt_idx_]:clnt_data_list_cum_sum[clnt_idx_+1]]
                     clnt_y[clnt_idx_] = trn_y[clnt_data_list_cum_sum[clnt_idx_]:clnt_data_list_cum_sum[clnt_idx_+1]]
                 
-                
-                # clnt_x = np.asarray(clnt_x, dtype=object)
-                # clnt_y = np.asarray(clnt_y, dtype=object)
+                try:
+                    clnt_x = np.asarray(clnt_x)
+                    clnt_y = np.asarray(clnt_y)
+                except ValueError:
+                    clnt_x = np.asarray(clnt_x, dtype=object)
+                    clnt_y = np.asarray(clnt_y, dtype=object)
 
             
             self.clnt_x = clnt_x; self.clnt_y = clnt_y
