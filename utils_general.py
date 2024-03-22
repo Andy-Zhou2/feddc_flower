@@ -8,7 +8,10 @@ This project is licensed under the MIT License.
 
 import torch.nn
 
-from utils_libs import *
+import os
+import torch
+from torch.utils import data
+import copy
 from utils_dataset import Dataset
 from flwr.common import Parameters, parameters_to_ndarrays, ndarrays_to_parameters
 import numpy as np
@@ -19,22 +22,19 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 from flwr.common.record import Array, ParametersRecord
 
-import time
-
 max_norm = 10
-
 
 # --- Evaluate a NN model
 def get_acc_loss(data_x, data_y, model, dataset_name, w_decay=None):
-    acc_overall = 0;
-    loss_overall = 0;
+    acc_overall = 0
+    loss_overall = 0
     loss_fn = torch.nn.CrossEntropyLoss(reduction='sum')
 
     batch_size = min(6000, data_x.shape[0])
     batch_size = min(2000, data_x.shape[0])
     n_tst = data_x.shape[0]
     tst_gen = data.DataLoader(Dataset(data_x, data_y, dataset_name=dataset_name), batch_size=batch_size, shuffle=False)
-    model.eval();
+    model.eval()
     model = model.to(device)
     with torch.no_grad():
         tst_gen_iter = tst_gen.__iter__()
@@ -133,7 +133,7 @@ def train_model_FedDC(model, model_func, alpha, local_update_last, global_update
 
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
-    model.train();
+    model.train()
     model = model.to(device)
 
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=sch_step, gamma=sch_gamma)

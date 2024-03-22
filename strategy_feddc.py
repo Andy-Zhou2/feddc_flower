@@ -1,4 +1,3 @@
-from collections import OrderedDict
 from typing import Dict, List, Optional, Tuple
 from typing import Callable, Union
 import flwr as fl
@@ -10,52 +9,18 @@ from utils_general import (set_client_from_params, get_acc_loss,
                            ndarray_to_array, basic_array_deserialisation, device)
 from utils_dataset import DatasetObject
 import torch
-import os
 
 from flwr.common import (
     EvaluateIns,
     EvaluateRes,
     FitIns,
     FitRes,
-    MetricsAggregationFn,
-    NDArrays,
     Parameters,
     Scalar,
-    ndarrays_to_parameters,
-    parameters_to_ndarrays,
 )
 from flwr.server.client_manager import ClientManager
 from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy.aggregate import aggregate, weighted_loss_avg
-
-
-def aggregate_weighted_average(metrics: list[tuple[int, dict]]) -> dict:
-    """Combine results from multiple clients.
-
-    Args:
-        metrics (list[tuple[int, dict]]): collected clients metrics
-
-    Returns
-    -------
-        dict: result dictionary containing the aggregate of the metrics passed.
-    """
-    average_dict: dict = defaultdict(list)
-    total_examples: int = 0
-    for num_examples, metrics_dict in metrics:
-        for key, val in metrics_dict.items():
-            if isinstance(val, numbers.Number):
-                average_dict[key].append((num_examples, val))
-        total_examples += num_examples
-    return {
-        key: {
-            "avg": float(
-                sum([num_examples * m for num_examples, m in val])
-                / float(total_examples)
-            ),
-            "all": val,
-        }
-        for key, val in average_dict.items()
-    }
 
 
 class FedDC(fl.server.strategy.Strategy):
@@ -87,9 +52,9 @@ class FedDC(fl.server.strategy.Strategy):
 
         # prepare weight_list
         # weight_list[i] is the #samples of client i / mean sample numbers per client
+        # in practice the mean num_samples could be estimated in other ways
         weight_list = np.asarray([len(data_obj.clnt_y[i]) for i in range(data_obj.n_client)])
         self.mean_sample_num = np.mean(weight_list)
-        print('mean_sample_num:', self.mean_sample_num)
 
         self.cent_x = np.concatenate(data_obj.clnt_x, axis=0)
         self.cent_y = np.concatenate(data_obj.clnt_y, axis=0)
@@ -98,8 +63,8 @@ class FedDC(fl.server.strategy.Strategy):
         self.all_client_average_weight = None
 
         init_par_list = parameters_to_weights(initial_parameters)
-        self.all_client_params = np.ones(data_obj.n_client).astype('float32').reshape(-1, 1) * init_par_list.reshape(1,
-                                                                                                                     -1)  # n_clnt X n_par
+        self.all_client_params = np.ones(data_obj.n_client).astype('float32').reshape(-1, 1) * \
+                                 init_par_list.reshape(1, -1)  # n_clnt X n_par
         self.all_client_drifts = np.zeros((data_obj.n_client, n_par))
 
     def __repr__(self) -> str:
@@ -132,7 +97,6 @@ class FedDC(fl.server.strategy.Strategy):
                 'round_num': server_round,
                 'alpha': self.config['alpha'],
                 'global_update_last': self.state_gradient_diff.astype(np.float64).tobytes(),
-                # self.state_gradient_diff,
                 'learning_rate': self.config['learning_rate'],
                 'batch_size': self.config['batch_size'],
                 'epoch': self.config['epoch'],
@@ -154,8 +118,8 @@ class FedDC(fl.server.strategy.Strategy):
             results: List[Tuple[ClientProxy, FitRes]],
             failures: List[Union[Tuple[ClientProxy, FitRes], BaseException]],
     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
-        """Aggregate fit results using weighted average."""
 
+        # collects results from clients, also doing conversion from bytes to numpy arrays
         weights_results = [
             parameters_to_weights(fit_res.parameters) for _, fit_res in results
         ]
@@ -205,19 +169,7 @@ class FedDC(fl.server.strategy.Strategy):
             results: List[Tuple[ClientProxy, EvaluateRes]],
             failures: List[Union[Tuple[ClientProxy, EvaluateRes], BaseException]],
     ) -> Tuple[Optional[float], Dict[str, Scalar]]:
-        """Aggregate evaluation losses using weighted average."""
-
-        if not results:
-            return None, {}
-
-        loss_aggregated = weighted_loss_avg(
-            [
-                (evaluate_res.num_examples, evaluate_res.loss)
-                for _, evaluate_res in results
-            ]
-        )
-        metrics_aggregated = {}
-        return loss_aggregated, metrics_aggregated
+        raise NotImplementedError("FedDC does not support client-side evaluation")
 
     def evaluate(
             self, server_round: int, parameters: Parameters

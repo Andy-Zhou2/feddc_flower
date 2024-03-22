@@ -5,23 +5,19 @@ Copyright 2024 Andy Zhou
 
 This project is licensed under the MIT License.
 """
-
-import random
-import numpy as np
-import torch
-
-"""A client manager that guarantees deterministic client sampling."""
-
-import logging
-import random
-
 from flwr.common.logger import log
 from flwr.server.client_manager import SimpleClientManager
 from flwr.server.client_proxy import ClientProxy
 from flwr.server.criterion import Criterion
 from utils_general import device
 
+import logging
+import random
+import numpy as np
+import torch
 
+
+"""A client manager that guarantees deterministic client sampling."""
 class DeterministicClientManager(SimpleClientManager):
     """A deterministic client manager.
 

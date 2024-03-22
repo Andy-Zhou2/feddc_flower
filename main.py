@@ -1,17 +1,14 @@
 from utils_dataset import DatasetObject
 from utils_models import client_model
-from utils_general import get_mdl_params, parameters_to_weights, weights_to_parameters
+from utils_general import get_mdl_params, weights_to_parameters
 from client import client_fn
 
-import torch
 import flwr as fl
 from strategy_feddc import FedDC
 
 import hydra
 from omegaconf import DictConfig, OmegaConf
 from hydra.utils import to_absolute_path
-import numpy as np
-import random
 from utils_random import generate_rng, DeterministicClientManager
 from flwr.common.logger import log
 import logging

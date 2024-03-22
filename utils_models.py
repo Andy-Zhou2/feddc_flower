@@ -5,8 +5,9 @@ Copyright 2024 Andy Zhou
 
 This project is licensed under the MIT License.
 """
+import torch.nn as nn
+import torch.nn.functional as F
 
-from utils_libs import *
 import torchvision.models as models
 
 

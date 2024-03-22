@@ -3,17 +3,21 @@ from utils_dataset import DatasetObject
 from utils_models import client_model
 from utils_general import get_mdl_params, set_client_from_params, train_model_FedDC
 import numpy as np
-from flwr.common.typing import NDArrays, Scalar
+from flwr.common.typing import NDArrays
 from typing import Any
-from utils_general import get_acc_loss, basic_array_deserialisation, ndarray_to_array, device
+from utils_general import basic_array_deserialisation, ndarray_to_array, device
 import torch
 from collections import OrderedDict
 from flwr.common import ParametersRecord
 import random
 from utils_random import set_seed
+from typing import Callable
+
 
 class FeddcClient(fl.client.NumPyClient):
-    def __init__(self, cid, net, client_x, client_y, model_func, seed, n_par=None, data_path='./client_sim/'):
+    def __init__(self, cid: str, net: torch.nn.Module, client_x: np.ndarray, client_y: np.ndarray,
+                 model_func: Callable[[], torch.nn.Module],
+                 seed: int, n_par: int = None, data_path: str = './client_sim/'):
         self.cid = cid
         self.net = net
         self.client_x = client_x
@@ -23,7 +27,6 @@ class FeddcClient(fl.client.NumPyClient):
         self.model_func = model_func
         self.seed = seed
 
-
     def fit(self, parameters: NDArrays, config: dict[str, Any]) -> tuple[NDArrays, int, dict[str, Any]]:
         # print(f'--------training client {self.cid}-------------')
         parameters = parameters[0]
@@ -32,7 +35,7 @@ class FeddcClient(fl.client.NumPyClient):
         self.net.train()
         for params in self.net.parameters():
             params.requires_grad = True
-        
+
         # retrieve state_gradient_diffs and param_drifts from state
         state = self.context.state
         saved_state = state.parameters_records.get('saved_states', ParametersRecord(None))
@@ -42,7 +45,6 @@ class FeddcClient(fl.client.NumPyClient):
         else:
             state_gradient_diff = basic_array_deserialisation(saved_state['state_gradient_diff']).copy()
             params_drift = basic_array_deserialisation(saved_state['params_drift']).copy()
-
 
         weight = len(self.client_y) / config['mean_sample_num']
         global_update_last = np.frombuffer(config['global_update_last'], dtype=np.float64)  # protocol: use float64
@@ -71,6 +73,7 @@ class FeddcClient(fl.client.NumPyClient):
             sch_gamma=config['sch_gamma'],
         )
 
+        # variable names consistent with the original code
         new_model_params = get_mdl_params(new_model)
         delta_param_curr = new_model_params - parameters
         params_drift += delta_param_curr
@@ -81,6 +84,7 @@ class FeddcClient(fl.client.NumPyClient):
 
         delta_g_cur = (state_g - state_gradient_diff) * weight
 
+        # save the state back to the context
         saved_state = OrderedDict()
         saved_state['state_gradient_diff'] = ndarray_to_array(state_g)
         saved_state['params_drift'] = ndarray_to_array(params_drift)
@@ -98,12 +102,14 @@ class FeddcClient(fl.client.NumPyClient):
 
 def client_fn(data_obj: DatasetObject, cid: str, model_name: str, rng: random.Random, n_par=None) -> fl.client.Client:
     """Load data and model for a specific client."""
-    # Load model
-    model_func = lambda: client_model(model_name)
 
+    def model_func():
+        return client_model(model_name)
+
+    # prepares local dataset
     client_x = data_obj.clnt_x[int(cid)]
     client_y = data_obj.clnt_y[int(cid)]
 
-    client_seed = rng.randint(0, 2**32 - 1)
+    client_seed = rng.randint(0, 2 ** 32 - 1)
 
     return FeddcClient(cid, model_func(), client_x, client_y, model_func, client_seed, n_par).to_client()
