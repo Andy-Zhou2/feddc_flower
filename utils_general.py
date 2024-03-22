@@ -1,6 +1,6 @@
-"""Model creation script for FedDC.
+"""Training and evaluation script for FedDC.
 
-Slightly adapted from the original https://github.com/gaoliang13/FedDC/blob/main/utils_models.py
+Slightly adapted from the original https://github.com/gaoliang13/FedDC
 Copyright 2024 Andy Zhou
 
 This project is licensed under the MIT License.
@@ -124,24 +124,6 @@ def train_model_FedDC(model, model_func, alpha, local_update_last, global_update
                       trn_x, trn_y,
                       learning_rate, batch_size, epoch, print_per,
                       weight_decay, dataset_name, sch_step, sch_gamma):
-    # print(f'model: {model}')
-    # print(f'model_func: {model_func}')
-    # print(f'alpha: {alpha}')
-    # print(f'local_update_last: {np.sum(local_update_last)}')
-    # print(f'global_update_last: {np.sum(global_update_last)}')
-    # print(f'global_model_param: {np.sum(global_model_param.numpy())}')
-    # print(f'hist_i: {np.sum(hist_i)}')
-    # print(f'trn_x: {np.sum(trn_x)}')
-    # print(f'trn_y: {np.sum(trn_y)}')
-    # print(f'learning_rate: {learning_rate}')
-    # print(f'batch_size: {batch_size}')
-    # print(f'epoch: {epoch}')
-    # print(f'print_per: {print_per}')
-    # print(f'weight_decay: {weight_decay}')
-    # print(f'dataset_name: {dataset_name}')
-    # print(f'sch_step: {sch_step}')
-    # print(f'sch_gamma: {sch_gamma}')
-
 
     n_trn = trn_x.shape[0]
     state_update_diff = torch.tensor(-local_update_last + global_update_last, dtype=torch.float32, device=device)

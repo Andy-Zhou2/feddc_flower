@@ -22,6 +22,7 @@ fl:
   learning_rate: 0.1
   print_per: 2 # For all clients, print every 2 epochs
 
+
 resources:
   num_cpu: 16
   num_gpu: 1
