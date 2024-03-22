@@ -8,12 +8,18 @@ import flwr as fl
 from strategy_feddc import FedDC
 
 import hydra
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 from hydra.utils import to_absolute_path
+import numpy as np
+import random
+from utils_random import generate_rng, DeterministicClientManager
+from flwr.common.logger import log
+import logging
 
 
 @hydra.main(config_path="Configs", config_name="config")
 def main(cfg: DictConfig):
+    log(logging.INFO, OmegaConf.to_yaml(cfg))
     data_path = to_absolute_path(cfg.data.data_path)
     print(data_path)
     n_client = cfg.data.n_client
@@ -38,7 +44,10 @@ def main(cfg: DictConfig):
     def model_func():
         return client_model(model_name)
 
-    torch.manual_seed(37)
+    server_isolated_rng, client_cid_rng, client_seed_rng = generate_rng(cfg.fl.seed)
+
+    client_manager = DeterministicClientManager(client_cid_rng, enable_resampling=False)
+
 
     init_model = model_func()
     init_weights = get_mdl_params(init_model)
@@ -68,15 +77,15 @@ def main(cfg: DictConfig):
         fraction_evaluate=0,
         initial_parameters=weights_to_parameters(get_mdl_params(init_model, n_par)),
         n_par=n_par,
-        # client_sim_path=client_sim_path,
     )
 
     fl.simulation.start_simulation(
-        client_fn=lambda x: client_fn(data_obj=data_obj, model_name=model_name, n_par=n_par, cid=x),
+        client_fn=lambda x: client_fn(data_obj=data_obj, model_name=model_name, n_par=n_par, cid=x, rng=client_seed_rng),
         num_clients=n_client,
         config=fl.server.ServerConfig(num_rounds=com_amount),
         strategy=strategy,
         client_resources={"num_cpus": cfg.resources.num_cpu, "num_gpus": cfg.resources.num_gpu},
+        client_manager=client_manager
     )
 
 

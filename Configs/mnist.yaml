@@ -14,7 +14,7 @@ model:
 fl:
   num_total_rounds: 1000
   batch_size: 50
-  participation_ratio: 1  # 1 means all clients participate in each round
+  participation_ratio: 0.15  # 1 means all clients participate in each round
   weight_decay: 1e-3
   lr_decay_per_round: 0.998
   epoch_per_round_per_client: 5
@@ -24,5 +24,5 @@ fl:
   seed: 42
 
 resources:
-  num_cpu: 16
+  num_cpu: 1
   num_gpu: 1

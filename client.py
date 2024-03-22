@@ -9,10 +9,11 @@ from utils_general import get_acc_loss, basic_array_deserialisation, ndarray_to_
 import torch
 from collections import OrderedDict
 from flwr.common import ParametersRecord
-
+import random
+from utils_random import set_seed
 
 class FeddcClient(fl.client.NumPyClient):
-    def __init__(self, cid, net, client_x, client_y, model_func, n_par=None, data_path='./client_sim/'):
+    def __init__(self, cid, net, client_x, client_y, model_func, seed, n_par=None, data_path='./client_sim/'):
         self.cid = cid
         self.net = net
         self.client_x = client_x
@@ -20,6 +21,7 @@ class FeddcClient(fl.client.NumPyClient):
         self.n_par = n_par if n_par is not None else get_mdl_params(self.net)
         self.data_path = data_path
         self.model_func = model_func
+        self.seed = seed
 
 
     def fit(self, parameters: NDArrays, config: dict[str, Any]) -> tuple[NDArrays, int, dict[str, Any]]:
@@ -48,6 +50,7 @@ class FeddcClient(fl.client.NumPyClient):
         alpha = config['alpha'] / weight
 
         round_num = config['round_num']
+        set_seed(self.seed + round_num)
         new_model = train_model_FedDC(
             model=self.net,
             model_func=self.model_func,
@@ -93,7 +96,7 @@ class FeddcClient(fl.client.NumPyClient):
         raise NotImplementedError
 
 
-def client_fn(data_obj: DatasetObject, cid: str, model_name: str, n_par=None) -> fl.client.Client:
+def client_fn(data_obj: DatasetObject, cid: str, model_name: str, rng: random.Random, n_par=None) -> fl.client.Client:
     """Load data and model for a specific client."""
     # Load model
     model_func = lambda: client_model(model_name)
@@ -101,4 +104,6 @@ def client_fn(data_obj: DatasetObject, cid: str, model_name: str, n_par=None) ->
     client_x = data_obj.clnt_x[int(cid)]
     client_y = data_obj.clnt_y[int(cid)]
 
-    return FeddcClient(cid, model_func(), client_x, client_y, model_func, n_par).to_client()
+    client_seed = rng.randint(0, 2**32 - 1)
+
+    return FeddcClient(cid, model_func(), client_x, client_y, model_func, client_seed, n_par).to_client()
