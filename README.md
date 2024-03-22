@@ -1,7 +1,7 @@
 # FedDC Flower
 
 ## Introduction
-My project aims to implement FedDC in the Flower[8] federated learning framework, which will facilitate easier experimentation and improve reproducibility.
+My project aims to implement FedDC in the Flower federated learning framework, which will facilitate easier experimentation and improve reproducibility.
 
 ## Requirements
 - Anaconda or Miniconda (for managing environments)
