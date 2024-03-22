@@ -1,3 +1,11 @@
+"""Model creation script for FedDC.
+
+Slightly adapted from the original https://github.com/gaoliang13/FedDC/blob/main/utils_models.py
+Copyright 2024 Andy Zhou
+
+This project is licensed under the MIT License.
+"""
+
 from utils_libs import *
 from utils_dataset import *
 from utils_models import *
