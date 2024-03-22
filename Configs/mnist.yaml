@@ -1,0 +1,27 @@
+defaults:
+  - _self_
+  - dataset_partition: iid
+
+data:
+  dataset: mnist
+  n_client: 100
+  seed: 23
+  data_path: Folder/   # Change this to your own ABSOLUTE path
+
+model:
+  model_name: mnist_2NN
+
+fl:
+  num_total_rounds: 1000
+  batch_size: 50
+  participation_ratio: 1  # 1 means all clients participate in each round
+  weight_decay: 1e-3
+  lr_decay_per_round: 0.998
+  epoch_per_round_per_client: 5
+  alpha_coef: 0.1
+  learning_rate: 0.1
+  print_per: 2 # For all clients, print every 2 epochs
+
+resources:
+  num_cpu: 16
+  num_gpu: 1

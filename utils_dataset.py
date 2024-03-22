@@ -11,7 +11,7 @@ class DatasetObject:
         self.name = "%s_%d_%d_%s_%s" %(self.dataset, self.n_client, self.seed, self.rule, rule_arg_str)
         self.name += '_%f' %unbalanced_sgm if unbalanced_sgm!=0 else ''
         self.unbalanced_sgm = unbalanced_sgm
-        self.data_path = data_path
+        self.data_path = data_path + '/'  # add / for path formatting
         self.set_data()
         
     def set_data(self):
@@ -135,7 +135,7 @@ class DatasetObject:
                         break
             ###     
             
-            if self.rule == 'Drichlet':
+            if self.rule == 'Dirichlet':
                 cls_priors   = np.random.dirichlet(alpha=[self.rule_arg]*self.n_cls,size=self.n_client)
                 prior_cumsum = np.cumsum(cls_priors, axis=1)
                 idx_list = [np.where(trn_y==i)[0] for i in range(self.n_cls)]

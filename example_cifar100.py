@@ -1,7 +1,7 @@
 from utils_dataset import DatasetObject
 from utils_models import client_model
 from utils_general import get_mdl_params, parameters_to_weights, weights_to_parameters
-from client import client_fn, evaluate_fn
+from client import client_fn
 from functools import partial
 
 import torch

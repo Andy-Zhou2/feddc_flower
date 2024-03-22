@@ -102,11 +102,3 @@ def client_fn(data_obj: DatasetObject, cid: str, model_name: str, n_par=None) ->
     client_y = data_obj.clnt_y[int(cid)]
 
     return FeddcClient(cid, model_func(), client_x, client_y, model_func, n_par).to_client()
-
-
-def evaluate_fn(data_obj: DatasetObject, model_name: str, server_round: int, parameters: NDArrays,
-                fed_eval_config: dict[str, Any]):
-    model_func = lambda: client_model(model_name)
-    cur_cld_model = set_client_from_params(model_func(), parameters)
-    loss_tst, acc_tst = get_acc_loss(data_obj.tst_x, data_obj.tst_y, cur_cld_model, data_obj.dataset, 0)
-    return loss_tst, {'accuracy': acc_tst}

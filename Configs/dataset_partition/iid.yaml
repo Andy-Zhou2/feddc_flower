@@ -1,0 +1,3 @@
+rule: iid
+rule_arg: "" # For Dirichlet distribution only. Not used for iid.
+unbalanced_sgm: 0

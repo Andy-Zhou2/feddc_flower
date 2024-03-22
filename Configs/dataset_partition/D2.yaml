@@ -1,0 +1,3 @@
+rule: Dirichlet
+rule_arg: 0.3
+unbalanced_sgm: 0
