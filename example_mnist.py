@@ -19,7 +19,7 @@ n_client = 100
 # Generate IID or Dirichlet distribution
 # IID
 
-data_obj = DatasetObject(dataset='mnist', n_client=n_client, seed=23, rule='Drichlet', rule_arg=0.6, unbalanced_sgm=0, data_path=data_path)
+data_obj = DatasetObject(dataset='mnist', n_client=n_client, seed=23, rule='iid', unbalanced_sgm=0, data_path=data_path)
 # data_obj = DatasetObject(dataset='CIFAR10', n_client=n_client, seed=23, rule='iid', unbalanced_sgm=0, data_path=data_path)
 
 # Dirichlet (0.6)
@@ -29,7 +29,7 @@ model_name = 'mnist_2NN'  # Model type
 # model_name = 'cifar10_LeNet'  # Model type
 
 # Common hyperparameters
-com_amount = 200
+com_amount = 1000
 save_period = 100
 weight_decay = 1e-3
 batch_size = 50
