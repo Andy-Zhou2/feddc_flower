@@ -3,13 +3,13 @@ defaults:
   - dataset_partition: iid
 
 data:
-  dataset: mnist
+  dataset: CIFAR100
   n_client: 100
   seed: 23
   data_path: Folder/
 
 model:
-  model_name: mnist_2NN
+  model_name: cifar100_LeNet
 
 fl:
   num_total_rounds: 1000
@@ -18,7 +18,7 @@ fl:
   weight_decay: 1e-3
   lr_decay_per_round: 0.998
   epoch_per_round_per_client: 5
-  alpha_coef: 0.1
+  alpha_coef: 0.01
   learning_rate: 0.1
   print_per: 2 # For all clients, print every 2 epochs
 
